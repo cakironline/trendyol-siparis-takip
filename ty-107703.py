@@ -49,7 +49,7 @@ def fetch_orders():
     df = pd.DataFrame([
         {
             "Sipariş No": o["orderNumber"],
-            "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000) - timedelta(hours=3),  # -3 saat düzeltme
+            "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
             "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000),
             "Statü": o["status"],
             "FastDelivery": o.get("fastDelivery", False)
