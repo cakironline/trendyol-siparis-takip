@@ -83,7 +83,7 @@ if "data" in st.session_state:
         elif kalan_saat <= 3:
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
-            return f"({saat} Saat {dakika} Dakika) İçinde Gecikmeye Girecek! 🟠"
+            return f"🟠 3 Saat İçinde ({saat} Saat {dakika} Dakika)"
         elif kalan_saat <= 6:
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
