@@ -50,7 +50,7 @@ def fetch_orders():
         {
             "Sipariş No": o["orderNumber"],
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
-            "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
+            "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000),
             "Statü": o["status"],
             "FastDelivery": o.get("fastDelivery", False)
         }
