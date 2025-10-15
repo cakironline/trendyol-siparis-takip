@@ -70,7 +70,8 @@ if "data" in st.session_state:
     now = datetime.now()
 
     def durum_hesapla(row):
-        kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now).total_seconds() / 3600
+        now_guncel = now + timedelta(hours=3)
+        kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
 
 
         if kalan_saat < 0:  # Gecikmede
