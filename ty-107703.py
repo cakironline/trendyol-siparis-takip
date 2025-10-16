@@ -20,7 +20,6 @@ def fetch_orders():
 
     url = f"https://apigw.trendyol.com/integration/order/sellers/{SELLER_ID}/orders"
 
-    # --- TÜM STATÜLERİ ÇEKME ---
     statuses = ["Created", "Picking", "Invoiced"]
     all_orders = []
 
@@ -46,16 +45,26 @@ def fetch_orders():
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode"
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "UrunDetay"
         ])
 
     rows = []
     for o in all_orders:
         lines = o.get("lines", [])
-
-        # Bir siparişte birden fazla ürün varsa, barcode ve productCode değerlerini virgülle birleştir
         barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
         product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
+
+        # Ürün detayları için dataframe hazırla
+        urun_detay_list = []
+        for line in lines:
+            urun_detay_list.append({
+                "Ürün Adı": line.get("productName", ""),
+                "Adet": line.get("quantity", ""),
+                "Beden": line.get("productSize", ""),
+                "Renk": line.get("productColor", ""),
+                "Barcode": line.get("barcode", ""),
+                "ProductCode": line.get("productCode", "")
+            })
 
         rows.append({
             "Sipariş No": o["orderNumber"],
@@ -64,7 +73,8 @@ def fetch_orders():
             "Statü": o["status"],
             "FastDelivery": o.get("fastDelivery", False),
             "Barcode": barcodes,
-            "ProductCode": product_codes
+            "ProductCode": product_codes,
+            "UrunDetay": urun_detay_list
         })
 
     df = pd.DataFrame(rows)
@@ -126,9 +136,18 @@ if "data" in st.session_state:
         with tabs[i]:
             df_k = df[df["Durum"].str.contains(kategori)].copy()
             if not df_k.empty:
-                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)  # En eski → en yeni
-                df_k.insert(0, "No", range(1, len(df_k) + 1))  # Sıra numarası ekle
+                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
+                df_k.insert(0, "No", range(1, len(df_k) + 1))
+                
+                # Ana tablo
                 st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
+
+                # Satır bazlı detay butonları
+                for idx, row in df_k.iterrows():
+                    if st.button("➕", key=f"detay_{idx}"):
+                        urun_df = pd.DataFrame(row["UrunDetay"])
+                        st.modal(f"Sipariş {row['Sipariş No']} Detayları").dataframe(urun_df, use_container_width=True)
+
             else:
                 st.info("Bu kategoride sipariş bulunmuyor.")
 
