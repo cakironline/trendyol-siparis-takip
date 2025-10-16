@@ -20,6 +20,7 @@ def fetch_orders():
 
     url = f"https://apigw.trendyol.com/integration/order/sellers/{SELLER_ID}/orders"
 
+    # --- TÜM STATÜLERİ ÇEKME ---
     statuses = ["Created", "Picking", "Invoiced"]
     all_orders = []
 
@@ -50,23 +51,21 @@ def fetch_orders():
 
     rows = []
     for o in all_orders:
-        order_number = o["orderNumber"]
-        order_date = datetime.fromtimestamp(o["orderDate"]/1000)
-        agreed_delivery = datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3)
-        status = o["status"]
-        fast_delivery = o.get("fastDelivery", False)
+        lines = o.get("lines", [])
 
-        # her satır (line) için barcode ve productCode ekle
-        for line in o.get("lines", []):
-            rows.append({
-                "Sipariş No": order_number,
-                "Sipariş Tarihi": order_date,
-                "Kargoya Verilmesi Gereken Tarih": agreed_delivery,
-                "Statü": status,
-                "FastDelivery": fast_delivery,
-                "Barcode": line.get("barcode"),
-                "ProductCode": line.get("productCode"),
-            })
+        # Bir siparişte birden fazla ürün varsa, barcode ve productCode değerlerini virgülle birleştir
+        barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
+        product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
+
+        rows.append({
+            "Sipariş No": o["orderNumber"],
+            "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
+            "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
+            "Statü": o["status"],
+            "FastDelivery": o.get("fastDelivery", False),
+            "Barcode": barcodes,
+            "ProductCode": product_codes
+        })
 
     df = pd.DataFrame(rows)
     return df
@@ -127,8 +126,8 @@ if "data" in st.session_state:
         with tabs[i]:
             df_k = df[df["Durum"].str.contains(kategori)].copy()
             if not df_k.empty:
-                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
-                df_k.insert(0, "No", range(1, len(df_k) + 1))
+                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)  # En eski → en yeni
+                df_k.insert(0, "No", range(1, len(df_k) + 1))  # Sıra numarası ekle
                 st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
             else:
                 st.info("Bu kategoride sipariş bulunmuyor.")
