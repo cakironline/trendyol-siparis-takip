@@ -20,7 +20,6 @@ def fetch_orders():
 
     url = f"https://apigw.trendyol.com/integration/order/sellers/{SELLER_ID}/orders"
 
-    # --- TÜM STATÜLERİ ÇEKME ---
     statuses = ["Created", "Picking", "Invoiced"]
     all_orders = []
 
@@ -44,18 +43,32 @@ def fetch_orders():
             page += 1
 
     if not all_orders:
-        return pd.DataFrame(columns=["Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih", "Statü", "FastDelivery"])
+        return pd.DataFrame(columns=[
+            "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
+            "Statü", "FastDelivery", "Barcode", "ProductCode"
+        ])
 
-    df = pd.DataFrame([
-        {
-            "Sipariş No": o["orderNumber"],
-            "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
-            "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
-            "Statü": o["status"],
-            "FastDelivery": o.get("fastDelivery", False)
-        }
-        for o in all_orders
-    ])
+    rows = []
+    for o in all_orders:
+        order_number = o["orderNumber"]
+        order_date = datetime.fromtimestamp(o["orderDate"]/1000)
+        agreed_delivery = datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3)
+        status = o["status"]
+        fast_delivery = o.get("fastDelivery", False)
+
+        # her satır (line) için barcode ve productCode ekle
+        for line in o.get("lines", []):
+            rows.append({
+                "Sipariş No": order_number,
+                "Sipariş Tarihi": order_date,
+                "Kargoya Verilmesi Gereken Tarih": agreed_delivery,
+                "Statü": status,
+                "FastDelivery": fast_delivery,
+                "Barcode": line.get("barcode"),
+                "ProductCode": line.get("productCode"),
+            })
+
+    df = pd.DataFrame(rows)
     return df
 
 # --- Verileri Güncelle ---
@@ -72,7 +85,6 @@ if "data" in st.session_state:
     def durum_hesapla(row):
         now_guncel = now + timedelta(hours=3)
         kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
-
 
         if kalan_saat < 0:  # Gecikmede
             toplam_saat = -kalan_saat
@@ -115,8 +127,8 @@ if "data" in st.session_state:
         with tabs[i]:
             df_k = df[df["Durum"].str.contains(kategori)].copy()
             if not df_k.empty:
-                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)  # En eski → en yeni
-                df_k.insert(0, "No", range(1, len(df_k) + 1))  # Sıra numarası ekle
+                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
+                df_k.insert(0, "No", range(1, len(df_k) + 1))
                 st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
             else:
                 st.info("Bu kategoride sipariş bulunmuyor.")
