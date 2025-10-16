@@ -11,12 +11,16 @@ SELLER_ID = "107703"
 USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 
+st.write("API bağlantısı için bilgiler yüklendi ✅")
+
 def fetch_orders():
     now = datetime.now()
     start_date = int((now - timedelta(days=14)).timestamp() * 1000)
     end_date = int(now.timestamp() * 1000)
 
     url = f"https://apigw.trendyol.com/integration/order/sellers/{SELLER_ID}/orders"
+
+    # --- TÜM STATÜLERİ ÇEKME ---
     statuses = ["Created", "Picking", "Invoiced"]
     all_orders = []
 
@@ -40,42 +44,39 @@ def fetch_orders():
             page += 1
 
     if not all_orders:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=[
+            "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
+            "Statü", "FastDelivery", "Barcode", "ProductCode"
+        ])
 
     rows = []
     for o in all_orders:
         lines = o.get("lines", [])
-        barcodes = ", ".join([str(line.get("barcode", "")) for line in lines])
-        product_codes = ", ".join([str(line.get("productCode", "")) for line in lines])
 
-        urun_detay = []
-        for line in lines:
-            urun_detay.append({
-                "Barcode": line.get("barcode", ""),
-                "Ürün Adı": line.get("productName", ""),
-                "Beden": line.get("productSize", ""),
-                "Renk": line.get("productColor", ""),
-                "Adet": line.get("quantity", 1)
-            })
+        # Bir siparişte birden fazla ürün varsa, barcode ve productCode değerlerini virgülle birleştir
+        barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
+        product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
 
         rows.append({
             "Sipariş No": o["orderNumber"],
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
             "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
             "Statü": o["status"],
+            "FastDelivery": o.get("fastDelivery", False),
             "Barcode": barcodes,
-            "ProductCode": product_codes,
-            "Ürün Detayları": urun_detay
+            "ProductCode": product_codes
         })
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    return df
 
-# --- Verileri Getir ---
+# --- Verileri Güncelle ---
 if st.button("🔄 Verileri Güncelle"):
     df = fetch_orders()
     st.session_state["data"] = df
     st.success("Veriler güncellendi ✅")
 
+# --- Veri Gösterimi ---
 if "data" in st.session_state:
     df = st.session_state["data"]
     now = datetime.now()
@@ -83,39 +84,53 @@ if "data" in st.session_state:
     def durum_hesapla(row):
         now_guncel = now + timedelta(hours=3)
         kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
-        if kalan_saat < 0:
-            return "🔴 Gecikmede"
+
+        if kalan_saat < 0:  # Gecikmede
+            toplam_saat = -kalan_saat
+            gun = int(toplam_saat // 24)
+            saat = int(toplam_saat % 24)
+            dakika = int((toplam_saat - int(toplam_saat)) * 60)
+            return f"🔴 Gecikmede ({gun} Gün {saat} Saat {dakika} Dakika)"
         elif kalan_saat <= 3:
-            return "🟠 3 Saat İçinde"
+            saat = int(kalan_saat)
+            dakika = int((kalan_saat - saat) * 60)
+            return f"🟠 3 Saat İçinde ({saat} Saat {dakika} Dakika)"
         elif kalan_saat <= 6:
-            return "🟡 6 Saat İçinde"
+            saat = int(kalan_saat)
+            dakika = int((kalan_saat - saat) * 60)
+            return f"🟡 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
         elif kalan_saat <= 12:
-            return "🟢 12 Saat İçinde"
+            saat = int(kalan_saat)
+            dakika = int((kalan_saat - saat) * 60)
+            return f"🟢 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
         else:
-            return "✅ Süresi Var"
+            saat = int(kalan_saat)
+            dakika = int((kalan_saat - saat) * 60)
+            return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
 
-    df["Durum"] = df.apply(durum_hesapla, axis=1)
+    if not df.empty:
+        df["Durum"] = df.apply(durum_hesapla, axis=1)
+    else:
+        st.info("API’den veri gelmedi veya hiç sipariş yok.")
 
-    # --- Tabloyu Göster (Detay butonuyla birlikte) ---
-    st.write("### 📋 Sipariş Listesi")
+    kategori_listesi = ["🔴 Gecikmede", "🟠 3 Saat İçinde", "🟡 6 Saat İçinde", "🟢 12 Saat İçinde", "✅ Süresi Var"]
+    tabs = st.tabs([f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi])
 
-    for idx, row in df.iterrows():
-        col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 3, 3, 3, 1])
-        col1.write(f"**Sipariş No:** {row['Sipariş No']}")
-        col2.write(row["Statü"])
-        col3.write(row["Sipariş Tarihi"].strftime("%d.%m.%Y %H:%M"))
-        col4.write(row["Kargoya Verilmesi Gereken Tarih"].strftime("%d.%m.%Y %H:%M"))
-        col5.write(row["Durum"])
-        if col6.button("➕", key=f"detay_{idx}"):
-            st.session_state["popup_row"] = row
+    def highlight_fast_delivery(row):
+        if row["FastDelivery"]:
+            return ['background-color: #b6fcb6']*len(row)
+        else:
+            return ['']*len(row)
 
-    # --- Popup Gösterimi ---
-    if "popup_row" in st.session_state:
-        popup = st.session_state["popup_row"]
-        with st.modal(f"Sipariş {popup['Sipariş No']} Detayları"):
-            st.write(f"### 🛍️ Ürün Detayları")
-            detay_df = pd.DataFrame(popup["Ürün Detayları"])
-            st.dataframe(detay_df, use_container_width=True)
-            st.button("Kapat", key="kapat", on_click=lambda: st.session_state.pop("popup_row"))
+    for i, kategori in enumerate(kategori_listesi):
+        with tabs[i]:
+            df_k = df[df["Durum"].str.contains(kategori)].copy()
+            if not df_k.empty:
+                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)  # En eski → en yeni
+                df_k.insert(0, "No", range(1, len(df_k) + 1))  # Sıra numarası ekle
+                st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
+            else:
+                st.info("Bu kategoride sipariş bulunmuyor.")
+
 else:
-    st.info("Verileri görmek için 'Verileri Güncelle' butonuna tıklayın.")
+    st.info("Verileri görmek için yukarıdan 'Verileri Güncelle' butonuna tıklayın.")
