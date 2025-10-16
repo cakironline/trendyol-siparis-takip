@@ -20,7 +20,6 @@ def fetch_orders():
 
     url = f"https://apigw.trendyol.com/integration/order/sellers/{SELLER_ID}/orders"
 
-    # --- TÜM STATÜLERİ ÇEKME ---
     statuses = ["Created", "Picking", "Invoiced"]
     all_orders = []
 
@@ -46,7 +45,7 @@ def fetch_orders():
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode"
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "Ürün Detayları"
         ])
 
     rows = []
@@ -57,6 +56,18 @@ def fetch_orders():
         barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
         product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
 
+        # Ürün detayları (doğru alan adlarıyla)
+        urun_detay = []
+        for line in lines:
+            urun_detay.append({
+                "Barcode": line.get("barcode", ""),
+                "ProductCode": line.get("productCode", ""),
+                "Ürün Adı": line.get("productName", ""),
+                "Beden": line.get("productSize", ""),
+                "Renk": line.get("productColor", ""),
+                "Adet": line.get("quantity", 1)
+            })
+
         rows.append({
             "Sipariş No": o["orderNumber"],
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
@@ -64,17 +75,20 @@ def fetch_orders():
             "Statü": o["status"],
             "FastDelivery": o.get("fastDelivery", False),
             "Barcode": barcodes,
-            "ProductCode": product_codes
+            "ProductCode": product_codes,
+            "Ürün Detayları": urun_detay
         })
 
     df = pd.DataFrame(rows)
     return df
+
 
 # --- Verileri Güncelle ---
 if st.button("🔄 Verileri Güncelle"):
     df = fetch_orders()
     st.session_state["data"] = df
     st.success("Veriler güncellendi ✅")
+
 
 # --- Veri Gösterimi ---
 if "data" in st.session_state:
@@ -85,7 +99,7 @@ if "data" in st.session_state:
         now_guncel = now + timedelta(hours=3)
         kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
 
-        if kalan_saat < 0:  # Gecikmede
+        if kalan_saat < 0:
             toplam_saat = -kalan_saat
             gun = int(toplam_saat // 24)
             saat = int(toplam_saat % 24)
@@ -126,9 +140,24 @@ if "data" in st.session_state:
         with tabs[i]:
             df_k = df[df["Durum"].str.contains(kategori)].copy()
             if not df_k.empty:
-                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)  # En eski → en yeni
-                df_k.insert(0, "No", range(1, len(df_k) + 1))  # Sıra numarası ekle
-                st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
+                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
+                df_k.insert(0, "No", range(1, len(df_k) + 1))
+
+                # --- Detay butonlu görünüm ---
+                for idx, row in df_k.iterrows():
+                    with st.container(border=True):
+                        c1, c2, c3, c4, c5 = st.columns([2, 2, 3, 3, 1])
+                        c1.write(f"**No:** {idx+1}")
+                        c2.write(f"**Sipariş No:** {row['Sipariş No']}")
+                        c3.write(f"📅 {row['Sipariş Tarihi'].strftime('%d.%m.%Y %H:%M')}")
+                        c4.write(f"{row['Durum']}")
+                        if c5.button("➕ Detay", key=f"detay_{i}_{idx}"):
+                            with st.modal(f"Sipariş {row['Sipariş No']} Ürün Detayları"):
+                                st.write(f"### 🛍️ Ürünler")
+                                detay_df = pd.DataFrame(row["Ürün Detayları"])
+                                st.dataframe(detay_df, use_container_width=True)
+                                st.button("Kapat", key=f"kapat_{i}_{idx}")
+                st.divider()
             else:
                 st.info("Bu kategoride sipariş bulunmuyor.")
 
