@@ -60,6 +60,7 @@ def fetch_orders():
         rows.append({
             "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",  # Yeni sütun
             "Sipariş No": o["orderNumber"],
+            "Müşteri Adı": f"{o.get('customerFirstName', '')} {o.get('customerLastName', '')}".strip(),  # Ad Soyad birleşimi
             "Package ID": o.get("id", ""),  # shipmentPackageId,
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
             "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
