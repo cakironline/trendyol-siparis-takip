@@ -58,6 +58,7 @@ def fetch_orders():
         product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
 
         rows.append({
+            "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",  # Yeni sütun
             "Sipariş No": o["orderNumber"],
             "Package ID": o.get("id", ""),  # shipmentPackageId,
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
