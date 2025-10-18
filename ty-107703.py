@@ -153,7 +153,7 @@ if "data" in st.session_state:
     else:
         st.info("API’den veri gelmedi veya hiç sipariş yok.")
 
-     🔹 Yeni Sekme İçin Filtreleme
+     
     df_faturasiz_micro = df[(df["Fatura Durumu"] == "Fatura Yüklü Değil") & (df["Micro"] == True)]
 
     kategori_listesi = ["🔴 Gecikmede", "🟠 3 Saat İçinde", "🟡 6 Saat İçinde", "🟢 12 Saat İçinde", "✅ Süresi Var"]
