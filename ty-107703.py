@@ -24,9 +24,9 @@ st.markdown("""
     </style>
 
     <div class="navbar">
-        <a href="https://urunler.streamlit.app/" target="_self">💼 Ürün Yönetim</a>
-        <a href="https://dgn-satis-takip-ddzwb2ys9nzk5p5fyddxbw.streamlit.app/" target="_self">📊 Satış Takip</a>
-        <a href="https://dgn-siparis-takip.streamlit.app/" target="_self">📦 Sipariş Takip</a>
+        <a href="https://urunler.streamlit.app/" target="_blank">💼 Ürün Yönetim</a>
+        <a href="https://dgn-satis-takip-ddzwb2ys9nzk5p5fyddxbw.streamlit.app/" target="_blank">📊 Satış Takip</a>
+        <a href="https://dgn-siparis-takip.streamlit.app/" target="_blank">📦 Sipariş Takip</a>
     </div>
 """, unsafe_allow_html=True)
 
