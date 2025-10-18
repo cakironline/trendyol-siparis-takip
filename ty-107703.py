@@ -153,8 +153,14 @@ if "data" in st.session_state:
     else:
         st.info("API’den veri gelmedi veya hiç sipariş yok.")
 
+     🔹 Yeni Sekme İçin Filtreleme
+    df_faturasiz_micro = df[(df["Fatura Durumu"] == "Fatura Yüklü Değil") & (df["Micro"] == True)]
+
     kategori_listesi = ["🔴 Gecikmede", "🟠 3 Saat İçinde", "🟡 6 Saat İçinde", "🟢 12 Saat İçinde", "✅ Süresi Var"]
-    tabs = st.tabs([f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi])
+    tabs = st.tabs(
+        [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
+        + [f"📄 Faturası Yüklü Olmayan (Micro) ({len(df_faturasiz_micro)})"]
+    )    
 
     def highlight_fast_delivery(row):
         if row["FastDelivery"]:
@@ -171,6 +177,13 @@ if "data" in st.session_state:
                 st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
             else:
                 st.info("Bu kategoride sipariş bulunmuyor.")
-
+    with tabs[-1]:
+        if not df_faturasiz_micro.empty:
+            st.metric("Toplam Faturası Eksik (Micro) Sipariş", len(df_faturasiz_micro))
+            df_faturasiz_micro = df_faturasiz_micro.sort_values(by="Sipariş Tarihi", ascending=True)
+            df_faturasiz_micro.insert(0, "No", range(1, len(df_faturasiz_micro) + 1))
+            st.dataframe(df_faturasiz_micro.style.apply(highlight_fast_delivery, axis=1))
+        else:
+            st.success("🎉 Tüm micro siparişlerin faturası yüklü görünüyor.")
 else:
     st.info("Verileri görmek için yukarıdan 'Verileri Güncelle' butonuna tıklayın.")
