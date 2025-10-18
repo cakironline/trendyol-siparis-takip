@@ -74,7 +74,7 @@ def fetch_orders():
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu"
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu", "Ülke"
         ])
 
     rows = []
@@ -90,6 +90,7 @@ def fetch_orders():
         invoice_link = o.get("invoiceLink", "")  # Fatura linki
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
+        country_code = o.get("countryCode", "")
 
         rows.append({
             "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",  # Yeni sütun
@@ -104,7 +105,8 @@ def fetch_orders():
             "ProductCode": product_codes,
             "Micro": micro_value,
             "Fatura Durumu": fatura_durumu,
-            "Kargo Kodu":    kargo_code
+            "Kargo Kodu":    kargo_code,
+            "Ülke":    country_code
         })
 
     df = pd.DataFrame(rows)
