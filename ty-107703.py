@@ -4,6 +4,32 @@ import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
 
+st.markdown("""
+    <style>
+    .navbar {
+        background-color: #f0f0f0;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .navbar a {
+        text-decoration: none;
+        margin: 0 20px;
+        color: black;
+        font-weight: 600;
+    }
+    .navbar a:hover {
+        color: #ff6600;
+    }
+    </style>
+
+    <div class="navbar">
+        <a href="http://localhost:8501" target="_self">💼 Proje 1</a>
+        <a href="http://localhost:8502" target="_self">📊 Proje 2</a>
+        <a href="http://localhost:8503" target="_self">📦 Proje 3</a>
+    </div>
+""", unsafe_allow_html=True)
+
 st.set_page_config(page_title="Trendyol Sipariş Takibi", layout="wide")
 st.title("📦 Trendyol Kargo Gecikme Takip Paneli")
 
