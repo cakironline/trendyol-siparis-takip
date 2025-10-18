@@ -179,7 +179,6 @@ if "data" in st.session_state:
                 st.info("Bu kategoride sipariş bulunmuyor.")
     with tabs[-1]:
         if not df_faturasiz_micro.empty:
-            st.metric("Toplam Faturası Eksik (Micro) Sipariş", len(df_faturasiz_micro))
             df_faturasiz_micro = df_faturasiz_micro.sort_values(by="Sipariş Tarihi", ascending=True)
             df_faturasiz_micro.insert(0, "No", range(1, len(df_faturasiz_micro) + 1))
             st.dataframe(df_faturasiz_micro.style.apply(highlight_fast_delivery, axis=1))
