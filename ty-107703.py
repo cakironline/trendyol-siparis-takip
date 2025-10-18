@@ -24,9 +24,9 @@ st.markdown("""
     </style>
 
     <div class="navbar">
-        <a href="http://localhost:8501" target="_self">💼 Proje 1</a>
-        <a href="http://localhost:8502" target="_self">📊 Proje 2</a>
-        <a href="http://localhost:8503" target="_self">📦 Proje 3</a>
+        <a href="https://urunler.streamlit.app/" target="_self">💼 Ürün Yönetim</a>
+        <a href="https://dgn-satis-takip-ddzwb2ys9nzk5p5fyddxbw.streamlit.app/" target="_self">📊 Satış Takip</a>
+        <a href="https://dgn-siparis-takip.streamlit.app/" target="_self">📦 Sipariş Takip</a>
     </div>
 """, unsafe_allow_html=True)
 
