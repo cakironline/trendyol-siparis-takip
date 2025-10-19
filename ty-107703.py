@@ -42,7 +42,7 @@ tabs_hesap = st.tabs(["🟠 Trendyol Hesap 1", "🔵 Trendyol Hesap 2"])
 with tabs_hesap[0]:
     st.subheader("🟠 Hesap 1")
     if st.button("🔄 Hesap 1 Verilerini Güncelle"):
-        df1 = fetch_orders(SELLER_ID, USERNAME, PASSWORD)
+        df1 = fetch_orders(SELLER_ID_1, USERNAME_1, PASSWORD_1)
         st.session_state["data1"] = df1
         st.success("Hesap 1 verileri güncellendi ✅")
 
