@@ -35,13 +35,46 @@ st.markdown("""
 st.set_page_config(page_title="Trendyol Sipariş Takibi", layout="wide")
 st.title("📦 Trendyol Kargo Gecikme Takip Paneli")
 
+st.title("📦 Trendyol Kargo Gecikme Takip Paneli")
+
+tabs_hesap = st.tabs(["🟠 Trendyol Hesap 1", "🔵 Trendyol Hesap 2"])
+
+with tabs_hesap[0]:
+    st.subheader("🟠 Hesap 1")
+    if st.button("🔄 Hesap 1 Verilerini Güncelle"):
+        df1 = fetch_orders(SELLER_ID, USERNAME, PASSWORD)
+        st.session_state["data1"] = df1
+        st.success("Hesap 1 verileri güncellendi ✅")
+
+    if "data1" in st.session_state:
+        df = st.session_state["data1"]
+        # burada senin mevcut tablo ve kategori kodların (durum_hesapla, highlight vs)
+        # olduğu gibi kalabilir
+
+with tabs_hesap[1]:
+    st.subheader("🔵 Hesap 2")
+    if st.button("🔄 Hesap 2 Verilerini Güncelle"):
+        df2 = fetch_orders(SELLER_ID_2, USERNAME_2, PASSWORD_2)
+        st.session_state["data2"] = df2
+        st.success("Hesap 2 verileri güncellendi ✅")
+
+    if "data2" in st.session_state:
+        df = st.session_state["data2"]
+        # aynı tablo gösterim kısmı burada da
+
+
 SELLER_ID = "107703"
 USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 
+SELLER_ID_2 = "1054434"
+USERNAME_2 = st.secrets["USERNAME_2"]
+PASSWORD_2 = st.secrets["PASSWORD_2"]
+
+
 st.write("API bağlantısı için bilgiler yüklendi ✅")
 
-def fetch_orders():
+def fetch_orders(seller_id, username, password):
     now = datetime.now()
     start_date = int((now - timedelta(days=14)).timestamp() * 1000)
     end_date = int(now.timestamp() * 1000)
