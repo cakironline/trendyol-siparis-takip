@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
 
+# ----- Navbar -----
 st.markdown("""
     <style>
     .navbar {
@@ -28,60 +29,30 @@ st.markdown("""
         <a href="https://dgn-satis-takip-ddzwb2ys9nzk5p5fyddxbw.streamlit.app/" target="_blank">📊 Satış Takip</a>
         <a href="https://dgn-siparis-takip.streamlit.app/" target="_blank">📦 Sipariş Takip</a>
         <a href="https://trendyol-gecikme.streamlit.app/" target="_blank">📦 Trendyol Gecikme Takip</a>
-        
     </div>
 """, unsafe_allow_html=True)
 
 st.set_page_config(page_title="Trendyol Sipariş Takibi", layout="wide")
 st.title("📦 Trendyol Kargo Gecikme Takip Paneli")
 
-st.title("📦 Trendyol Kargo Gecikme Takip Paneli")
-
-tabs_hesap = st.tabs(["🟠 Trendyol Hesap 1", "🔵 Trendyol Hesap 2"])
-
-with tabs_hesap[0]:
-    st.subheader("🟠 Hesap 1")
-    if st.button("🔄 Hesap 1 Verilerini Güncelle"):
-        df1 = fetch_orders(SELLER_ID_1, USERNAME_1, PASSWORD_1)
-        st.session_state["data1"] = df1
-        st.success("Hesap 1 verileri güncellendi ✅")
-
-    if "data1" in st.session_state:
-        df = st.session_state["data1"]
-        # burada senin mevcut tablo ve kategori kodların (durum_hesapla, highlight vs)
-        # olduğu gibi kalabilir
-
-with tabs_hesap[1]:
-    st.subheader("🔵 Hesap 2")
-    if st.button("🔄 Hesap 2 Verilerini Güncelle"):
-        df2 = fetch_orders(SELLER_ID_2, USERNAME_2, PASSWORD_2)
-        st.session_state["data2"] = df2
-        st.success("Hesap 2 verileri güncellendi ✅")
-
-    if "data2" in st.session_state:
-        df = st.session_state["data2"]
-        # aynı tablo gösterim kısmı burada da
-
-
-SELLER_ID_1 = "107703"
+# ----- Secrets -----
+SELLER_ID_1 = st.secrets["SELLER_ID_1"]
 USERNAME_1 = st.secrets["USERNAME_1"]
 PASSWORD_1 = st.secrets["PASSWORD_1"]
 
-SELLER_ID_2 = "1054434"
+SELLER_ID_2 = st.secrets["SELLER_ID_2"]
 USERNAME_2 = st.secrets["USERNAME_2"]
 PASSWORD_2 = st.secrets["PASSWORD_2"]
 
-
 st.write("API bağlantısı için bilgiler yüklendi ✅")
 
+# ----- Fonksiyon -----
 def fetch_orders(seller_id, username, password):
     now = datetime.now()
     start_date = int((now - timedelta(days=14)).timestamp() * 1000)
     end_date = int(now.timestamp() * 1000)
 
-    url = f"https://apigw.trendyol.com/integration/order/sellers/{SELLER_ID}/orders"
-
-    # --- TÜM STATÜLERİ ÇEKME ---
+    url = f"https://apigw.trendyol.com/integration/order/sellers/{seller_id}/orders"
     statuses = ["Created", "Picking", "Invoiced"]
     all_orders = []
 
@@ -97,7 +68,7 @@ def fetch_orders(seller_id, username, password):
                 "size": 200,
                 "page": page
             }
-            r = requests.get(url, auth=HTTPBasicAuth(USERNAME, PASSWORD), params=params)
+            r = requests.get(url, auth=HTTPBasicAuth(username, password), params=params)
             data = r.json().get("content", [])
             if not data:
                 break
@@ -113,22 +84,18 @@ def fetch_orders(seller_id, username, password):
     rows = []
     for o in all_orders:
         lines = o.get("lines", [])
-
-        # Bir siparişte birden fazla ürün varsa, barcode ve productCode değerlerini virgülle birleştir
         barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
         product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
-
-        # Yeni alanlar:
-        micro_value = o.get("micro", "")  # Servisten gelen "micro"
-        invoice_link = o.get("invoiceLink", "")  # Fatura linki
+        micro_value = o.get("micro", "")
+        invoice_link = o.get("invoiceLink", "")
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
 
         rows.append({
-            "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",  # Yeni sütun
+            "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",
             "Sipariş No": o["orderNumber"],
-            "Müşteri Adı": f"{o.get('customerFirstName', '')} {o.get('customerLastName', '')}".strip(),  # Ad Soyad birleşimi
-            "Package ID": o.get("id", ""),  # shipmentPackageId,
+            "Müşteri Adı": f"{o.get('customerFirstName', '')} {o.get('customerLastName', '')}".strip(),
+            "Package ID": o.get("id", ""),
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
             "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
             "Statü": o["status"],
@@ -137,95 +104,103 @@ def fetch_orders(seller_id, username, password):
             "ProductCode": product_codes,
             "Micro": micro_value,
             "Fatura Durumu": fatura_durumu,
-            "Kargo Kodu":    kargo_code
-            
+            "Kargo Kodu": kargo_code
         })
 
-    df = pd.DataFrame(rows)
-    return df
+    return pd.DataFrame(rows)
 
-# --- Verileri Güncelle ---
-if st.button("🔄 Verileri Güncelle"):
-    df = fetch_orders()
-    st.session_state["data"] = df
-    st.success("Veriler güncellendi ✅")
+# ----- Hesap Sekmeleri -----
+account_tabs = st.tabs(["🟠 Hesap 1", "🔵 Hesap 2"])
 
-# --- Veri Gösterimi ---
-if "data" in st.session_state:
-    df = st.session_state["data"]
-    now = datetime.now()
+for i, (seller, user, pwd, hesap_adi) in enumerate([
+    (SELLER_ID_1, USERNAME_1, PASSWORD_1, "Hesap 1"),
+    (SELLER_ID_2, USERNAME_2, PASSWORD_2, "Hesap 2")
+]):
+    with account_tabs[i]:
+        st.subheader(f"📦 {hesap_adi} Siparişleri")
 
-    def durum_hesapla(row):
-        now_guncel = now + timedelta(hours=3)
-        kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
+        if st.button(f"🔄 Verileri Güncelle ({hesap_adi})"):
+            df = fetch_orders(seller, user, pwd)
+            st.session_state[f"data_{hesap_adi}"] = df
+            st.success(f"{hesap_adi} verileri güncellendi ✅")
 
-        if kalan_saat < 0:  # Gecikmede
-            toplam_saat = -kalan_saat
-            gun = int(toplam_saat // 24)
-            saat = int(toplam_saat % 24)
-            dakika = int((toplam_saat - int(toplam_saat)) * 60)
-            return f"🔴 Gecikmede ({gun} Gün {saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 2:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟠 2 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 4:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟡 4 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 6:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🔵​ 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 12:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟣​ 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 24:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟢 24 Saat İçinde ({saat} Saat {dakika} Dakika)"
-            
-        else:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
+        if f"data_{hesap_adi}" in st.session_state:
+            df = st.session_state[f"data_{hesap_adi}"]
+            now = datetime.now()
 
-    if not df.empty:
-        df["Durum"] = df.apply(durum_hesapla, axis=1)
-    else:
-        st.info("API’den veri gelmedi veya hiç sipariş yok.")
+            def durum_hesapla(row):
+                now_guncel = now + timedelta(hours=3)
+                kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
+                if kalan_saat < 0:
+                    toplam_saat = -kalan_saat
+                    gun = int(toplam_saat // 24)
+                    saat = int(toplam_saat % 24)
+                    dakika = int((toplam_saat - int(toplam_saat)) * 60)
+                    return f"🔴 Gecikmede ({gun} Gün {saat} Saat {dakika} Dakika)"
+                elif kalan_saat <= 2:
+                    saat = int(kalan_saat)
+                    dakika = int((kalan_saat - saat) * 60)
+                    return f"🟠 2 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                elif kalan_saat <= 4:
+                    saat = int(kalan_saat)
+                    dakika = int((kalan_saat - saat) * 60)
+                    return f"🟡 4 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                elif kalan_saat <= 6:
+                    saat = int(kalan_saat)
+                    dakika = int((kalan_saat - saat) * 60)
+                    return f"🔵 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                elif kalan_saat <= 12:
+                    saat = int(kalan_saat)
+                    dakika = int((kalan_saat - saat) * 60)
+                    return f"🟣 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                elif kalan_saat <= 24:
+                    saat = int(kalan_saat)
+                    dakika = int((kalan_saat - saat) * 60)
+                    return f"🟢 24 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                else:
+                    saat = int(kalan_saat)
+                    dakika = int((kalan_saat - saat) * 60)
+                    return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
 
-     
-    df_faturasiz_micro = df[(df["Fatura Durumu"] == "Fatura Yüklü Değil") & (df["Micro"] == True)]
-
-    kategori_listesi = ["🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde", "🔵​ 6 Saat İçinde", "🟣​ 12 Saat İçinde", "🟢 24 Saat İçinde", "✅ Süresi Var"]
-    tabs = st.tabs(
-        [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
-        + [f"📄 Faturası Yüklü Olmayan (Micro) ({len(df_faturasiz_micro)})"]
-    )    
-
-    def highlight_fast_delivery(row):
-        if row["FastDelivery"]:
-            return ['background-color: #b6fcb6']*len(row)
-        else:
-            return ['']*len(row)
-
-    for i, kategori in enumerate(kategori_listesi):
-        with tabs[i]:
-            df_k = df[df["Durum"].str.contains(kategori)].copy()
-            if not df_k.empty:
-                df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)  # En eski → en yeni
-                df_k.insert(0, "No", range(1, len(df_k) + 1))  # Sıra numarası ekle
-                st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
+            if not df.empty:
+                df["Durum"] = df.apply(durum_hesapla, axis=1)
             else:
-                st.info("Bu kategoride sipariş bulunmuyor.")
-    with tabs[-1]:
-        if not df_faturasiz_micro.empty:
-            df_faturasiz_micro = df_faturasiz_micro.sort_values(by="Sipariş Tarihi", ascending=True)
-            df_faturasiz_micro.insert(0, "No", range(1, len(df_faturasiz_micro) + 1))
-            st.dataframe(df_faturasiz_micro.style.apply(highlight_fast_delivery, axis=1))
+                st.info("API’den veri gelmedi veya hiç sipariş yok.")
+
+            df_faturasiz_micro = df[(df["Fatura Durumu"] == "Fatura Yüklü Değil") & (df["Micro"] == True)]
+
+            kategori_listesi = [
+                "🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde",
+                "🔵 6 Saat İçinde", "🟣 12 Saat İçinde", "🟢 24 Saat İçinde", "✅ Süresi Var"
+            ]
+
+            tabs = st.tabs(
+                [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
+                + [f"📄 Faturası Yüklü Olmayan (Micro) ({len(df_faturasiz_micro)})"]
+            )
+
+            def highlight_fast_delivery(row):
+                if row["FastDelivery"]:
+                    return ['background-color: #b6fcb6'] * len(row)
+                else:
+                    return [''] * len(row)
+
+            for j, kategori in enumerate(kategori_listesi):
+                with tabs[j]:
+                    df_k = df[df["Durum"].str.contains(kategori)].copy()
+                    if not df_k.empty:
+                        df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
+                        df_k.insert(0, "No", range(1, len(df_k) + 1))
+                        st.dataframe(df_k.style.apply(highlight_fast_delivery, axis=1))
+                    else:
+                        st.info("Bu kategoride sipariş bulunmuyor.")
+
+            with tabs[-1]:
+                if not df_faturasiz_micro.empty:
+                    df_faturasiz_micro = df_faturasiz_micro.sort_values(by="Sipariş Tarihi", ascending=True)
+                    df_faturasiz_micro.insert(0, "No", range(1, len(df_faturasiz_micro) + 1))
+                    st.dataframe(df_faturasiz_micro.style.apply(highlight_fast_delivery, axis=1))
+                else:
+                    st.success("🎉 Tüm micro siparişlerin faturası yüklü görünüyor.")
         else:
-            st.success("🎉 Tüm micro siparişlerin faturası yüklü görünüyor.")
-else:
-    st.info("Verileri görmek için yukarıdan 'Verileri Güncelle' butonuna tıklayın.")
+            st.info(f"{hesap_adi} için verileri görmek üzere 'Verileri Güncelle' butonuna tıklayın.")
