@@ -110,11 +110,11 @@ def fetch_orders(seller_id, username, password):
     return pd.DataFrame(rows)
 
 # ----- Hesap Sekmeleri -----
-account_tabs = st.tabs(["🟠 DGN-TRENDYOL", "🔵 DGNONLİNE-TRENDYOL"])
+account_tabs = st.tabs(["🟥​ DGN-TRENDYOL", "🟩​ DGNONLİNE-TRENDYOL"])
 
 for i, (seller, user, pwd, hesap_adi) in enumerate([
-    (SELLER_ID_1, USERNAME_1, PASSWORD_1, "Hesap 1"),
-    (SELLER_ID_2, USERNAME_2, PASSWORD_2, "Hesap 2")
+    (SELLER_ID_1, USERNAME_1, PASSWORD_1, "DGN-TRENDYOL"),
+    (SELLER_ID_2, USERNAME_2, PASSWORD_2, "DGNONLİNE-TRENDYOL")
 ]):
     with account_tabs[i]:
         st.subheader(f"📦 {hesap_adi} Siparişleri")
