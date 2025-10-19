@@ -136,27 +136,27 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                     gun = int(toplam_saat // 24)
                     saat = int(toplam_saat % 24)
                     dakika = int((toplam_saat - int(toplam_saat)) * 60)
-                    return f"🔴 Gecikmede ({gun} Gün {saat} Saat {dakika} Dakika)"
+                    return f"🔴 ({gun} Gün {saat} Saat {dakika} Dakika)"
                 elif kalan_saat <= 2:
                     saat = int(kalan_saat)
                     dakika = int((kalan_saat - saat) * 60)
-                    return f"🟠 2 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                    return f"🟠 ({saat} Saat {dakika} Dakika)"
                 elif kalan_saat <= 4:
                     saat = int(kalan_saat)
                     dakika = int((kalan_saat - saat) * 60)
-                    return f"🟡 4 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                    return f"🟡 ({saat} Saat {dakika} Dakika)"
                 elif kalan_saat <= 6:
                     saat = int(kalan_saat)
                     dakika = int((kalan_saat - saat) * 60)
-                    return f"🔵 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                    return f"🔵 ({saat} Saat {dakika} Dakika)"
                 elif kalan_saat <= 12:
                     saat = int(kalan_saat)
                     dakika = int((kalan_saat - saat) * 60)
-                    return f"🟣 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                    return f"🟣 ({saat} Saat {dakika} Dakika)"
                 elif kalan_saat <= 24:
                     saat = int(kalan_saat)
                     dakika = int((kalan_saat - saat) * 60)
-                    return f"🟢 24 Saat İçinde ({saat} Saat {dakika} Dakika)"
+                    return f"🟢 ({saat} Saat {dakika} Dakika)"
                 else:
                     saat = int(kalan_saat)
                     dakika = int((kalan_saat - saat) * 60)
