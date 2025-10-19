@@ -166,7 +166,7 @@ if "data" in st.session_state:
      
     df_faturasiz_micro = df[(df["Fatura Durumu"] == "Fatura Yüklü Değil") & (df["Micro"] == True)]
 
-    kategori_listesi = ["🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde", "🟢 12 Saat İçinde", "🔵​ 6 Saat İçinde", "🟣​ 12 Saat İçinde", "✅ Süresi Var"]
+    kategori_listesi = ["🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde", "🔵​ 6 Saat İçinde", "🟣​ 12 Saat İçinde", "🟢 24 Saat İçinde", "✅ Süresi Var"]
     tabs = st.tabs(
         [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
         + [f"📄 Faturası Yüklü Olmayan (Micro) ({len(df_faturasiz_micro)})"]
