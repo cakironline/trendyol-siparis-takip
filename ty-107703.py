@@ -63,9 +63,9 @@ with tabs_hesap[1]:
         # aynı tablo gösterim kısmı burada da
 
 
-SELLER_ID = "107703"
-USERNAME = st.secrets["USERNAME"]
-PASSWORD = st.secrets["PASSWORD"]
+SELLER_ID_1 = "107703"
+USERNAME_1 = st.secrets["USERNAME_1"]
+PASSWORD_1 = st.secrets["PASSWORD_1"]
 
 SELLER_ID_2 = "1054434"
 USERNAME_2 = st.secrets["USERNAME_2"]
