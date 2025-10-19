@@ -132,18 +132,27 @@ if "data" in st.session_state:
             saat = int(toplam_saat % 24)
             dakika = int((toplam_saat - int(toplam_saat)) * 60)
             return f"🔴 Gecikmede ({gun} Gün {saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 3:
+        elif kalan_saat <= 2:
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
-            return f"🟠 3 Saat İçinde ({saat} Saat {dakika} Dakika)"
+            return f"🟠 2 Saat İçinde ({saat} Saat {dakika} Dakika)"
+        elif kalan_saat <= 4:
+            saat = int(kalan_saat)
+            dakika = int((kalan_saat - saat) * 60)
+            return f"🟡 4 Saat İçinde ({saat} Saat {dakika} Dakika)"
         elif kalan_saat <= 6:
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
-            return f"🟡 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
+            return f"🔵​ 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
         elif kalan_saat <= 12:
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
-            return f"🟢 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
+            return f"🟣​ 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
+        elif kalan_saat <= 24:
+            saat = int(kalan_saat)
+            dakika = int((kalan_saat - saat) * 60)
+            return f"🟢 24 Saat İçinde ({saat} Saat {dakika} Dakika)"
+            
         else:
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
@@ -157,7 +166,7 @@ if "data" in st.session_state:
      
     df_faturasiz_micro = df[(df["Fatura Durumu"] == "Fatura Yüklü Değil") & (df["Micro"] == True)]
 
-    kategori_listesi = ["🔴 Gecikmede", "🟠 3 Saat İçinde", "🟡 6 Saat İçinde", "🟢 12 Saat İçinde", "✅ Süresi Var"]
+    kategori_listesi = ["🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde", "🟢 12 Saat İçinde", "🔵​ 6 Saat İçinde", "🟣​ 12 Saat İçinde", "✅ Süresi Var"]
     tabs = st.tabs(
         [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
         + [f"📄 Faturası Yüklü Olmayan (Micro) ({len(df_faturasiz_micro)})"]
