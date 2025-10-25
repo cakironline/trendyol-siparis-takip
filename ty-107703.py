@@ -46,48 +46,7 @@ PASSWORD_2 = st.secrets["PASSWORD_2"]
 
 st.write("API bağlantısı için bilgiler yüklendi ✅")
 
-# ----- Yeni Fonksiyon: Hamurlabs API (güncellenmiş payload) -----
-def get_warehouse_status(order_id, order_number):
-    """
-    Hamurlabs API'den warehouse_code bilgisini alır.
-    tracker_code = f"{order_id}_{order_number}"
-    Eğer warehouse_code boşsa 'Onaylanmamış' döner.
-    """
-    url = "http://dgn.hamurlabs.io/api/order/v2/search/"
-    headers = {
-        "Authorization": "Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "company_id": "1",
-        "updated_at__start": "2025-10-15 00:00:00",
-        "updated_at__end": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "size": 1,
-        "start": 0,
-        "shop_id": "",
-        "tracker_code": f"{order_id}_{order_number}",
-        "order_types": ["selling"]
-    }
-
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            # Eğer warehouse_code boş değilse değerini al, boşsa "Onaylanmamış" yaz
-            warehouse_code = data.get("warehouse_code")
-            if warehouse_code:  
-                return warehouse_code
-            else:
-                return "Onaylanmamış"
-        else:
-            return "Onaylanmamış"
-    except Exception as e:
-        print(f"Hamurlabs sorgu hatası: {e} | Tracker: {payload['tracker_code']}")
-        return "Onaylanmamış"
-
-
-# ----- Trendyol Sipariş Fonksiyonu -----
+# ----- Fonksiyon -----
 def fetch_orders(seller_id, username, password):
     now = datetime.now()
     start_date = int((now - timedelta(days=14)).timestamp() * 1000)
@@ -119,7 +78,7 @@ def fetch_orders(seller_id, username, password):
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu", "Depo Durumu"
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu"
         ])
 
     rows = []
@@ -131,9 +90,6 @@ def fetch_orders(seller_id, username, password):
         invoice_link = o.get("invoiceLink", "")
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
-
-        # 👇 Yeni ekleme: Hamurlabs API'den depo durumu çek (güncellenmiş payload formatı ile)
-        depo_durumu = get_warehouse_status(o.get("id", ""), o["orderNumber"])
 
         rows.append({
             "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",
@@ -148,8 +104,7 @@ def fetch_orders(seller_id, username, password):
             "ProductCode": product_codes,
             "Micro": micro_value,
             "Fatura Durumu": fatura_durumu,
-            "Kargo Kodu": kargo_code,
-            "Depo Durumu": depo_durumu  # 👈 Hamurlabs'tan gelen bilgi
+            "Kargo Kodu": kargo_code
         })
 
     return pd.DataFrame(rows)
