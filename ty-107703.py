@@ -116,7 +116,7 @@ def map_depo(kod_str):
     """Warehouse code'u depo adına çevirir."""
     if pd.isna(kod_str) or kod_str == "":
         return ""
-    kod = kod_str.split(",")[0].strip()  # Eğer birden fazla kod varsa ilkini al
+    kod = kod_str.split(",")[0].strip()
     return depo_dict.get(kod, kod)
 
 # ----- Trendyol Sipariş Fonksiyonu -----
@@ -152,7 +152,7 @@ def fetch_orders(seller_id, username, password):
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
             "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", 
-            "Kargo Kodu", "Warehouse Code", "Warehouse"
+            "Kargo Kodu", "HB_SİP_NO", "Durum", "Onaylayan Mağaza"
         ])
 
     rows = []
@@ -184,7 +184,6 @@ def fetch_orders(seller_id, username, password):
 
     df = pd.DataFrame(rows)
 
-    # ----- Durum hesaplama -----
     now_guncel = datetime.now() + timedelta(hours=3)
     def durum_hesapla(row):
         kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
@@ -220,6 +219,7 @@ def fetch_orders(seller_id, username, password):
             return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
     
     df["Durum"] = df.apply(durum_hesapla, axis=1)
+    df["Onaylayan Mağaza"] = ""  # İlk başta boş
     return df
 
 # ----- Hesap Sekmeleri -----
@@ -234,25 +234,22 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
 
         if st.button(f"🔄 Verileri Güncelle ({hesap_adi})"):
             df = fetch_orders(seller, user, pwd)
-            
-            # ----- Sadece Gecikmiş siparişleri al -----
-            df_gecikmis = df[df["Durum"].str.contains("🔴 Gecikmede")].copy()
-            if not df_gecikmis.empty:
-                tracker_codes = df_gecikmis["HB_SİP_NO"].tolist()
-                st.info(f"{len(tracker_codes)} adet gecikmiş sipariş Hamurlabs ile sorgulanacak.")
 
+            # ----- Sadece Gecikmiş siparişler için Hamurlabs sorgusu -----
+            df_gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
+            if not df_gecikmis_idx.empty:
+                tracker_codes = df.loc[df_gecikmis_idx, "HB_SİP_NO"].tolist()
                 warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
-                df_gecikmis["Warehouse Code"] = df_gecikmis["HB_SİP_NO"].map(warehouse_map)
-                df_gecikmis["Warehouse"] = df_gecikmis["Warehouse Code"].apply(map_depo)
+                df.loc[df_gecikmis_idx, "Onaylayan Mağaza"] = df.loc[df_gecikmis_idx, "HB_SİP_NO"].map(
+                    lambda x: map_depo(warehouse_map.get(x, ""))
+                )
 
             st.session_state[f"data_{hesap_adi}"] = df
-            st.session_state[f"data_gecikmis_{hesap_adi}"] = df_gecikmis
             st.success(f"{hesap_adi} verileri güncellendi ✅")
 
         if f"data_{hesap_adi}" in st.session_state:
             df = st.session_state[f"data_{hesap_adi}"]
-            df_gecikmis = st.session_state.get(f"data_gecikmis_{hesap_adi}", pd.DataFrame())
-            
+
             kategori_listesi = [
                 "🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde",
                 "🔵 6 Saat İçinde", "🟣 12 Saat İçinde", "🟢 24 Saat İçinde", "✅ Süresi Var"
@@ -271,10 +268,3 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                         st.dataframe(df_k)
                     else:
                         st.info("Bu kategoride sipariş bulunmuyor.")
-
-            if not df_gecikmis.empty:
-                st.subheader("📦 Gecikmiş Siparişlerin Depo Bilgisi")
-                st.dataframe(df_gecikmis[[
-                    "Sipariş No", "HB_SİP_NO", "Müşteri Adı", "Durum", "Warehouse Code", "Warehouse"
-                ]])
-
