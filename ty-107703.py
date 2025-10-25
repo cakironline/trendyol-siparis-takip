@@ -59,7 +59,7 @@ def get_warehouse_code(tracker_code):
     """Tek bir tracker_code için Hamurlabs API'den warehouse_code çeker."""
     payload = {
         "company_id": "1",
-        "updated_at__start": "2025-10-24 00:00:00",
+        "updated_at__start": "2025-10-15 00:00:00",
         "updated_at__end": "2025-10-25 23:22:40",
         "size": 5,
         "start": 0,
