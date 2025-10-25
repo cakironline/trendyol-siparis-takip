@@ -56,7 +56,8 @@ depo_dict = {
     "6101": "Trabzon",
     "27003": "İpekyolu",
     "4215": "Meram",
-    "46002": "Binevler TOM TOM",
+    "46002": "Binevler",
+    "TOM":    "TOM",
     "27001": "Sanko",
     "4203": "Kampüs",
     "46001": "Piazza",
@@ -69,7 +70,8 @@ depo_dict = {
     "27002": "Suburcu",
     "4207": "BosnaMix",
     "4212": "Real",
-    "4206": "Plus M Aykent Depo",
+    "4206": "Plus",
+    "M":    "Aykent Depo",
     "4202": "Sportive"
 }
 
