@@ -265,18 +265,6 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                     if not df_k.empty:
                         df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
                         df_k.insert(0, "No", range(1, len(df_k) + 1))
-                        st.dataframe(df_k)
-
-                    if kategori == "🔴 Gecikmede":
-                        df_excel = df_k[["HB_SİP_NO", "Müşteri Adı", "Durum",
-                                         "Kargoya Verilmesi Gereken Tarih", "Onaylayan Mağaza"]].copy()
-                        excel_bytes = df_excel.to_excel(index=False, engine="openpyxl")
-                        st.download_button(
-                            label="📥 Excel Olarak İndir",
-                            data=excel_bytes,
-                            file_name=f"{hesap_adi}_Gecikmis_Siparisler.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    
+                        st.dataframe(df_k)                    
                     else:
                         st.info("Bu kategoride sipariş bulunmuyor.")
