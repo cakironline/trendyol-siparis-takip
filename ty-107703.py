@@ -240,4 +240,4 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                 warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
                 df.loc[df_gecikmis_idx, "Onaylayan Mağaza"] = df.loc[df_gecikmis_idx, "HB_SİP_NO"].map(
                     lambda x: map_depo(warehouse_map.get(x, ""))
-               
+                )
