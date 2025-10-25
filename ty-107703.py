@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
 import requests
+import openpyxl
 from requests.auth import HTTPBasicAuth
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
