@@ -154,7 +154,7 @@ def fetch_orders(seller_id, username, password):
     # ----- Hamurlabs Warehouse Code ekleme -----
     tracker_codes = df["HB_SİP_NO"].tolist()
     warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
-    df["Warehouse Code"] = df["HB_SİP_NO"].map(warehouse_map)
+    df["Onaylana Mağaza"] = df["HB_SİP_NO"].map(warehouse_map)
 
     return df
 
