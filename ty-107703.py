@@ -46,32 +46,85 @@ PASSWORD_2 = st.secrets["PASSWORD_2"]
 
 st.write("API bağlantısı için bilgiler yüklendi ✅")
 
-# ----- Yeni Fonksiyon: Hamurlabs API -----
+# ----- Yeni Fonksiyon: Hamurlabs API (güncellenmiş payload) -----
 def get_warehouse_status(tracker_code):
     """
-    Hamurlabs API'den warehouse_code bilgisini alır.
-    Eğer warehouse_code boşsa 'Onaylanmamış' döner.
+    Hamurlabs API'den (verdiğin örnek payload formatı ile) warehouse_code bilgisini alır.
+    Eğer warehouse_code boşsa veya cevap beklenen formatta değilse 'Onaylanmamış' döner.
     """
     if not tracker_code:
         return "Onaylanmamış"
 
-    url = "http://dgn.hamurlabs.io/api/order/status"
+    url = "http://dgn.hamurlabs.io/api/order/v2/search/"
     headers = {
         "Authorization": "Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=",
         "Content-Type": "application/json"
     }
-    payload = {"tracker_code": tracker_code}
+
+    # Örnek olarak verdiğin payload formatına uygun bir istek oluşturuyoruz.
+    # updated_at aralığını son 30 gün olarak ayarladım; istersen burada sabit değer de kullanabilirsin.
+    now = datetime.now()
+    payload = {
+        "company_id": "1",
+        "updated_at__start": (now - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S"),
+        "updated_at__end": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "size": 1,
+        "start": 0,
+        "shop_id": "",
+        "tracker_code": str(tracker_code),
+        "order_types": ["selling"]
+    }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            warehouse_code = data.get("warehouse_code", "")
-            return warehouse_code if warehouse_code else "Onaylanmamış"
-        else:
-            return "Onaylanmamış"
+        resp = requests.post(url, headers=headers, json=payload, timeout=12)
     except Exception as e:
-        return f"Hata: {e}"
+        # İstek atılamadıysa onaylanmamış döndür
+        return "Onaylanmamış"
+
+    # Başarılı bir HTTP cevabı geldi mi?
+    if resp.status_code != 200:
+        return "Onaylanmamış"
+
+    try:
+        data = resp.json()
+    except Exception:
+        return "Onaylanmamış"
+
+    # Cevap esnek olabilir: dict, list vs. Önce warehouse_code anahtarını bulmaya çalışıyoruz.
+    # Eğer dict gelmişse doğrudan al; list gelmişse listede warehouse_code olan ilkini alıyoruz.
+    warehouse_code = None
+
+    if isinstance(data, dict):
+        # Bazı servisler dönen veriyi {'data': {...}} gibi sarabilir
+        if "warehouse_code" in data:
+            warehouse_code = data.get("warehouse_code")
+        else:
+            # Eğer 'data' içinde list veya dict varsa ona bak
+            possible = data.get("data", None)
+            if isinstance(possible, dict) and "warehouse_code" in possible:
+                warehouse_code = possible.get("warehouse_code")
+            elif isinstance(possible, list) and len(possible) > 0:
+                # list içindeki ilk elemandan almayı dene
+                first = possible[0]
+                if isinstance(first, dict) and "warehouse_code" in first:
+                    warehouse_code = first.get("warehouse_code")
+    elif isinstance(data, list) and len(data) > 0:
+        # list döndüyse, list içindeki elemanlarda warehouse_code arıyoruz
+        for item in data:
+            if isinstance(item, dict) and item.get("tracker_code") == str(tracker_code):
+                warehouse_code = item.get("warehouse_code")
+                break
+        # eğer tracker_code ile eşleşen yoksa ilk dict içindeki warehouse_code'u al
+        if warehouse_code is None:
+            first = data[0]
+            if isinstance(first, dict):
+                warehouse_code = first.get("warehouse_code")
+
+    # Son kontrol: eğer değer boş veya None ise "Onaylanmamış" yaz
+    if warehouse_code:
+        return warehouse_code
+    else:
+        return "Onaylanmamış"
 
 # ----- Trendyol Sipariş Fonksiyonu -----
 def fetch_orders(seller_id, username, password):
@@ -118,7 +171,7 @@ def fetch_orders(seller_id, username, password):
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
 
-        # 👇 Yeni ekleme: Hamurlabs API'den depo durumu çek
+        # 👇 Yeni ekleme: Hamurlabs API'den depo durumu çek (güncellenmiş payload formatı ile)
         depo_durumu = get_warehouse_status(kargo_code)
 
         rows.append({
