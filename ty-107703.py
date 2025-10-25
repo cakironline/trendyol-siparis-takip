@@ -53,7 +53,7 @@ def get_warehouse_status(order_id, order_number):
     tracker_code = f"{order_id}_{order_number}"
     Eğer warehouse_code boşsa 'Onaylanmamış' döner.
     """
-    url = "http://dgn.hamurlabs.io/api/order/status"
+    url = "http://dgn.hamurlabs.io/api/order/v2/search/"
     headers = {
         "Authorization": "Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=",
         "Content-Type": "application/json"
