@@ -46,7 +46,34 @@ PASSWORD_2 = st.secrets["PASSWORD_2"]
 
 st.write("API bağlantısı için bilgiler yüklendi ✅")
 
-# ----- Fonksiyon -----
+# ----- Yeni Fonksiyon: Hamurlabs API -----
+def get_warehouse_status(tracker_code):
+    """
+    Hamurlabs API'den warehouse_code bilgisini alır.
+    Eğer warehouse_code boşsa 'Onaylanmamış' döner.
+    """
+    if not tracker_code:
+        return "Onaylanmamış"
+
+    url = "http://dgn.hamurlabs.io/api/order/status"
+    headers = {
+        "Authorization": "Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=",
+        "Content-Type": "application/json"
+    }
+    payload = {"tracker_code": tracker_code}
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            warehouse_code = data.get("warehouse_code", "")
+            return warehouse_code if warehouse_code else "Onaylanmamış"
+        else:
+            return "Onaylanmamış"
+    except Exception as e:
+        return f"Hata: {e}"
+
+# ----- Trendyol Sipariş Fonksiyonu -----
 def fetch_orders(seller_id, username, password):
     now = datetime.now()
     start_date = int((now - timedelta(days=14)).timestamp() * 1000)
@@ -78,7 +105,7 @@ def fetch_orders(seller_id, username, password):
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu"
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu", "Depo Durumu"
         ])
 
     rows = []
@@ -90,6 +117,9 @@ def fetch_orders(seller_id, username, password):
         invoice_link = o.get("invoiceLink", "")
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
+
+        # 👇 Yeni ekleme: Hamurlabs API'den depo durumu çek
+        depo_durumu = get_warehouse_status(kargo_code)
 
         rows.append({
             "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",
@@ -104,7 +134,8 @@ def fetch_orders(seller_id, username, password):
             "ProductCode": product_codes,
             "Micro": micro_value,
             "Fatura Durumu": fatura_durumu,
-            "Kargo Kodu": kargo_code
+            "Kargo Kodu": kargo_code,
+            "Depo Durumu": depo_durumu  # 👈 Eklenen yeni alan
         })
 
     return pd.DataFrame(rows)
