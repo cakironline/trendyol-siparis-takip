@@ -74,11 +74,16 @@ def get_warehouse_status(order_id, order_number):
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            warehouse_code = data.get("warehouse_code") or "Onaylanmamış"
-            return warehouse_code
+            # Eğer warehouse_code boş değilse değerini al, boşsa "Onaylanmamış" yaz
+            warehouse_code = data.get("warehouse_code")
+            if warehouse_code:  
+                return warehouse_code
+            else:
+                return "Onaylanmamış"
         else:
             return "Onaylanmamış"
-    except:
+    except Exception as e:
+        print(f"Hamurlabs sorgu hatası: {e} | Tracker: {payload['tracker_code']}")
         return "Onaylanmamış"
 
 
