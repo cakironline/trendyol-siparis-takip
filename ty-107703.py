@@ -5,7 +5,6 @@ import requests
 from requests.auth import HTTPBasicAuth
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import io
 
 # ----- Navbar -----
 st.markdown("""
@@ -57,8 +56,7 @@ depo_dict = {
     "6101": "Trabzon",
     "27003": "İpekyolu",
     "4215": "Meram",
-    "46002": "Binevler",
-    "TOM":    "TOM",
+    "46002": "Binevler TOM TOM",
     "27001": "Sanko",
     "4203": "Kampüs",
     "46001": "Piazza",
@@ -71,8 +69,7 @@ depo_dict = {
     "27002": "Suburcu",
     "4207": "BosnaMix",
     "4212": "Real",
-    "4206": "Plus",
-    "M":    "Aykent Depo",
+    "4206": "Plus M Aykent Depo",
     "4202": "Sportive"
 }
 
@@ -84,9 +81,10 @@ HAMURLABS_HEADERS = {
 }
 
 def get_warehouse_code(tracker_code):
+    """Tek bir tracker_code için Hamurlabs API'den warehouse_code çeker."""
     payload = {
         "company_id": "1",
-        "updated_at__start": "2025-10-10 00:00:00",
+        "updated_at__start": "2025-10-24 00:00:00",
         "updated_at__end": "2025-10-25 23:22:40",
         "size": 100,
         "start": 0,
@@ -105,6 +103,7 @@ def get_warehouse_code(tracker_code):
     return tracker_code, ""
 
 def fetch_warehouse_codes_parallel(tracker_codes):
+    """Tüm tracker_code'lar için paralel olarak warehouse_code çeker."""
     warehouse_map = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(get_warehouse_code, code) for code in tracker_codes]
@@ -114,6 +113,7 @@ def fetch_warehouse_codes_parallel(tracker_codes):
     return warehouse_map
 
 def map_depo(kod_str):
+    """Warehouse code'u depo adına çevirir."""
     if pd.isna(kod_str) or kod_str == "":
         return ""
     kod = kod_str.split(",")[0].strip()
@@ -183,6 +183,7 @@ def fetch_orders(seller_id, username, password):
         })
 
     df = pd.DataFrame(rows)
+
     now_guncel = datetime.now() + timedelta(hours=3)
     def durum_hesapla(row):
         kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
@@ -216,8 +217,9 @@ def fetch_orders(seller_id, username, password):
             saat = int(kalan_saat)
             dakika = int((kalan_saat - saat) * 60)
             return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
+    
     df["Durum"] = df.apply(durum_hesapla, axis=1)
-    df["Onaylayan Mağaza"] = ""  # Başlangıçta boş
+    df["Onaylayan Mağaza"] = ""  # İlk başta boş
     return df
 
 # ----- Hesap Sekmeleri -----
@@ -241,3 +243,28 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                 df.loc[df_gecikmis_idx, "Onaylayan Mağaza"] = df.loc[df_gecikmis_idx, "HB_SİP_NO"].map(
                     lambda x: map_depo(warehouse_map.get(x, ""))
                 )
+
+            st.session_state[f"data_{hesap_adi}"] = df
+            st.success(f"{hesap_adi} verileri güncellendi ✅")
+
+        if f"data_{hesap_adi}" in st.session_state:
+            df = st.session_state[f"data_{hesap_adi}"]
+
+            kategori_listesi = [
+                "🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde",
+                "🔵 6 Saat İçinde", "🟣 12 Saat İçinde", "🟢 24 Saat İçinde", "✅ Süresi Var"
+            ]
+            
+            tabs = st.tabs(
+                [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
+            )
+
+            for j, kategori in enumerate(kategori_listesi):
+                with tabs[j]:
+                    df_k = df[df["Durum"].str.contains(kategori)].copy()
+                    if not df_k.empty:
+                        df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
+                        df_k.insert(0, "No", range(1, len(df_k) + 1))
+                        st.dataframe(df_k)
+                    else:
+                        st.info("Bu kategoride sipariş bulunmuyor.")
