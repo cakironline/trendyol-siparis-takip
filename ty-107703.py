@@ -267,6 +267,6 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                     if not df_k.empty:
                         df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
                         df_k.insert(0, "No", range(1, len(df_k) + 1))
-                        st.dataframe(df_k)                    
+                        st.dataframe(df_k, height=800)                    
                     else:
                         st.info("Bu kategoride sipariş bulunmuyor.")
