@@ -61,7 +61,7 @@ def get_warehouse_status(order_id, order_number):
 
     payload = {
         "company_id": "1",
-        "updated_at__start": "2021-07-25 23:22:40",
+        "updated_at__start": "2025-10-15 00:00:00",
         "updated_at__end": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "size": 1,
         "start": 0,
