@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ----- Navbar -----
 st.markdown("""
@@ -46,6 +48,45 @@ PASSWORD_2 = st.secrets["PASSWORD_2"]
 
 st.write("API bağlantısı için bilgiler yüklendi ✅")
 
+# ----- Hamurlabs API -----
+HAMURLABS_URL = "http://dgn.hamurlabs.io/api/order/v2/search/"
+HAMURLABS_HEADERS = {
+    "Authorization": "Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=",
+    "Content-Type": "application/json"
+}
+
+def get_warehouse_code(tracker_code):
+    """Tek bir tracker_code için Hamurlabs API'den warehouse_code çeker."""
+    payload = {
+        "company_id": "1",
+        "updated_at__start": "2025-10-24 00:00:00",
+        "updated_at__end": "2025-10-25 23:22:40",
+        "size": 5,
+        "start": 0,
+        "shop_id": "",
+        "tracker_code": tracker_code,
+        "order_types": ["selling"]
+    }
+    try:
+        response = requests.post(HAMURLABS_URL, headers=HAMURLABS_HEADERS, data=json.dumps(payload), timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("data"):
+                return tracker_code, data["data"][0].get("warehouse_code", "")
+    except Exception as e:
+        st.warning(f"⚠️ Hamurlabs sorgusunda hata: {e}")
+    return tracker_code, ""
+
+def fetch_warehouse_codes_parallel(tracker_codes):
+    """Tüm tracker_code'lar için paralel olarak warehouse_code çeker."""
+    warehouse_map = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(get_warehouse_code, code) for code in tracker_codes]
+        for future in as_completed(futures):
+            code, warehouse = future.result()
+            warehouse_map[code] = warehouse
+    return warehouse_map
+
 # ----- Fonksiyon -----
 def fetch_orders(seller_id, username, password):
     now = datetime.now()
@@ -78,7 +119,7 @@ def fetch_orders(seller_id, username, password):
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu"
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", "Kargo Kodu", "Warehouse Code"
         ])
 
     rows = []
@@ -90,9 +131,10 @@ def fetch_orders(seller_id, username, password):
         invoice_link = o.get("invoiceLink", "")
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
+        hb_sip_no = f"{o.get('id', '')}_{o['orderNumber']}"  # Hamurlabs tracker_code olacak
 
         rows.append({
-            "HB_SİP_NO": f"{o.get('id', '')}_{o['orderNumber']}",
+            "HB_SİP_NO": hb_sip_no,
             "Sipariş No": o["orderNumber"],
             "Müşteri Adı": f"{o.get('customerFirstName', '')} {o.get('customerLastName', '')}".strip(),
             "Package ID": o.get("id", ""),
@@ -107,7 +149,14 @@ def fetch_orders(seller_id, username, password):
             "Kargo Kodu": kargo_code
         })
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+
+    # ----- Hamurlabs Warehouse Code ekleme -----
+    tracker_codes = df["HB_SİP_NO"].tolist()
+    warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
+    df["Warehouse Code"] = df["HB_SİP_NO"].map(warehouse_map)
+
+    return df
 
 # ----- Hesap Sekmeleri -----
 account_tabs = st.tabs(["🟥​ DGN-TRENDYOL", "🟩​ DGNONLİNE-TRENDYOL"])
