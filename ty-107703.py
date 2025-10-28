@@ -87,7 +87,7 @@ def get_warehouse_code(tracker_code):
     payload = {
         "company_id": "1",
         "updated_at__start": "2025-10-10 00:00:00",
-        "updated_at__end": "2025-10-25 23:22:40",
+        "updated_at__end": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "size": 100,
         "start": 0,
         "shop_id": "",
