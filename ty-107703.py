@@ -167,7 +167,7 @@ def fetch_orders(seller_id, username, password):
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
         hb_sip_no = f"{o.get('id', '')}_{o['orderNumber']}"
-        kargo_provider = o.get("cargoProviderNamer", "")
+        kargo_provider = o.get("cargoProviderName", "")
 
         rows.append({
             "HB_SİP_NO": hb_sip_no,
