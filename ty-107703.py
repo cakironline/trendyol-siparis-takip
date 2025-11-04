@@ -154,7 +154,7 @@ def fetch_orders(seller_id, username, password):
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
             "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", 
-            "Kargo Kodu", "HB_SİP_NO", "Durum", "Onaylayan Mağaza"
+            "Kargo Kodu", "HB_SİP_NO", "Durum", "Onaylayan Mağaza", "Kargo Firması"
         ])
 
     rows = []
