@@ -260,8 +260,17 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
             ]
             
             tabs = st.tabs(
-                [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
+                ["📋 Tüm Siparişler"] + [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
             )
+
+            # 🔹 Tüm Siparişler sekmesi
+            with tabs[0]:
+                if not df.empty:
+                    df_tum = df.sort_values(by="Sipariş Tarihi", ascending=False)
+                    df_tum.insert(0, "No", range(1, len(df_tum) + 1))
+                    st.dataframe(df_tum, height=800)
+                else:
+                    st.info("Hiç sipariş bulunmuyor.")
 
             for j, kategori in enumerate(kategori_listesi):
                 with tabs[j]:
