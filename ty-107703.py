@@ -240,13 +240,13 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
             df = fetch_orders(seller, user, pwd)
 
             # ----- Sadece Gecikmiş siparişler için Hamurlabs sorgusu -----
-            tracker_codes = df["HB_SİP_NO"].tolist()
-            warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
-            df["Onaylayan Mağaza"] = df["HB_SİP_NO"].map(
+            df_gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
+            if not df_gecikmis_idx.empty:
+                tracker_codes = df.loc[df_gecikmis_idx, "HB_SİP_NO"].tolist()
+                warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
+                df.loc[df_gecikmis_idx, "Onaylayan Mağaza"] = df.loc[df_gecikmis_idx, "HB_SİP_NO"].map(
                     lambda x: map_depo(warehouse_map.get(x, ""))
-                )    
-                
-                
+                )
 
             st.session_state[f"data_{hesap_adi}"] = df
             st.success(f"{hesap_adi} verileri güncellendi ✅")
