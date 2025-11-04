@@ -167,6 +167,7 @@ def fetch_orders(seller_id, username, password):
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
         hb_sip_no = f"{o.get('id', '')}_{o['orderNumber']}"
+        kargo_provider = o.get("cargoProviderNamer", "")
 
         rows.append({
             "HB_SİP_NO": hb_sip_no,
@@ -181,7 +182,8 @@ def fetch_orders(seller_id, username, password):
             "ProductCode": product_codes,
             "Micro": micro_value,
             "Fatura Durumu": fatura_durumu,
-            "Kargo Kodu": kargo_code
+            "Kargo Kodu": kargo_code,
+            "Kargo Firması": kargo_provider
         })
 
     df = pd.DataFrame(rows)
