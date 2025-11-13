@@ -96,7 +96,7 @@ def fetch_orders(seller_id, username, password):
             all_orders.extend(data); page+=1
     if not all_orders: return pd.DataFrame(columns=["Sipariş No","Sipariş Tarihi","Kargoya Verilmesi Gereken Tarih",
                                                     "Statü","FastDelivery","Barcode","ProductCode","Micro",
-                                                    "Fatura Durumu","Kargo Kodu","DGN SİPARİŞ NO","Durum",
+                                                    "Fatura Durumu","Kargo Kodu","HB_SİP_NO","Durum",
                                                     "Onaylayan Mağaza","Kargo Firması"])
     rows=[]
     for o in all_orders:
@@ -107,7 +107,7 @@ def fetch_orders(seller_id, username, password):
         fatura_durumu="Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code=o.get("cargoTrackingNumber","")
         hb_sip_no=f"{o.get('id','')}_{o['orderNumber']}"
-        rows.append({"DGN SİPARİŞ NO":hb_sip_no,"Sipariş No":o["orderNumber"],
+        rows.append({"HB_SİP_NO":hb_sip_no,"Sipariş No":o["orderNumber"],
                      "Müşteri Adı":f"{o.get('customerFirstName','')} {o.get('customerLastName','')}".strip(),
                      "Package ID":o.get("id",""),
                      "Sipariş Tarihi":datetime.fromtimestamp(o["orderDate"]/1000),
@@ -142,9 +142,9 @@ for i,(seller,user,pwd,hesap_adi) in enumerate([(SELLER_ID_1,USERNAME_1,PASSWORD
             df = fetch_orders(seller,user,pwd)
             gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
             if not gecikmis_idx.empty:
-                tracker_codes = df.loc[gecikmis_idx,"DGN SİPARİŞ NO"].tolist()
+                tracker_codes = df.loc[gecikmis_idx,"HB_SİP_NO"].tolist()
                 warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
-                df.loc[gecikmis_idx,"Onaylayan Mağaza"]=df.loc[gecikmis_idx,"DGN SİPARİŞ NO"].map(lambda x: map_depo(warehouse_map.get(x,"")))
+                df.loc[gecikmis_idx,"Onaylayan Mağaza"]=df.loc[gecikmis_idx,"HB_SİP_NO"].map(lambda x: map_depo(warehouse_map.get(x,"")))
             st.session_state[f"data_{hesap_adi}"]=df
             st.success(f"{hesap_adi} verileri güncellendi ✅")
 
@@ -173,7 +173,7 @@ for i,(seller,user,pwd,hesap_adi) in enumerate([(SELLER_ID_1,USERNAME_1,PASSWORD
                             for i in range(0,len(magazalar_sorted),3):
                                 cols = st.columns(3)
                                 for col, magaza in zip(cols, magazalar_sorted[i:i+3]):
-                                    df_magaza = df_k[df_k["Onaylayan Mağaza"]==magaza][["DGN SİPARİŞ NO","Müşteri Adı","Kargo Kodu"]]
+                                    df_magaza = df_k[df_k["Onaylayan Mağaza"]==magaza][["HB_SİP_NO","Müşteri Adı","Kargo Kodu"]]
                                     adet = len(df_magaza)
                                     # Koyu-kırmızı → açık-kırmızı
                                     if max_count != min_count:
