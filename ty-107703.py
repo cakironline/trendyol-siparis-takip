@@ -24,19 +24,29 @@ st.markdown("""
     .navbar a:hover {
         color: #ff6600;
     }
+    /* ---- Mağaza kart tasarımı ---- */
     .store-card {
-        background-color: #fafafa;
+        background-color: #ffffff;
         border: 1px solid #ddd;
-        border-radius: 12px;
+        border-radius: 14px;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
         padding: 15px;
-        box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
-        margin-bottom: 20px;
+        margin-bottom: 25px;
+        height: 350px; /* tüm kartlar eşit yükseklikte */
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
     }
     .store-card h4 {
-        color: #333;
+        color: #222;
         text-align: center;
         font-weight: 600;
         margin-bottom: 10px;
+    }
+    .store-table {
+        flex-grow: 1;
+        overflow-y: auto;
+        border-radius: 8px;
     }
     </style>
 
@@ -64,29 +74,12 @@ st.write("API bağlantısı için bilgiler yüklendi ✅")
 
 # ----- Depo kod → depo adı sözlüğü -----
 depo_dict = {
-    "4216": "Ereğli",
-    "27005": "Karataş",
-    "27004": "Gazikent",
-    "6101": "Trabzon",
-    "27003": "İpekyolu",
-    "4215": "Meram",
-    "46002": "Binevler",
-    "TOM":    "TOM",
-    "27001": "Sanko",
-    "4203": "Kampüs",
-    "46001": "Piazza",
-    "4200": "Merkez Ayakkabı",
-    "4201": "Merkez Giyim",
-    "4210": "Novada",
-    "4214": "Fabrika Satış",
-    "46012": "Oniki Şubat",
-    "27000": "Gazimuhtar",
-    "27002": "Suburcu",
-    "4207": "BosnaMix",
-    "4212": "Real",
-    "4206": "Plus",
-    "M":    "Aykent Depo",
-    "4202": "Sportive"
+    "4216": "Ereğli", "27005": "Karataş", "27004": "Gazikent", "6101": "Trabzon",
+    "27003": "İpekyolu", "4215": "Meram", "46002": "Binevler", "TOM": "TOM",
+    "27001": "Sanko", "4203": "Kampüs", "46001": "Piazza", "4200": "Merkez Ayakkabı",
+    "4201": "Merkez Giyim", "4210": "Novada", "4214": "Fabrika Satış", "46012": "Oniki Şubat",
+    "27000": "Gazimuhtar", "27002": "Suburcu", "4207": "BosnaMix", "4212": "Real",
+    "4206": "Plus", "M": "Aykent Depo", "4202": "Sportive"
 }
 
 # ----- Hamurlabs API -----
@@ -101,16 +94,13 @@ def get_warehouse_code(tracker_code):
         "company_id": "1",
         "updated_at__start": "2025-11-01 00:00:00",
         "updated_at__end": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "size": 100,
-        "start": 0,
-        "shop_id": "",
-        "tracker_code": tracker_code,
-        "order_types": ["selling"]
+        "size": 100, "start": 0, "shop_id": "",
+        "tracker_code": tracker_code, "order_types": ["selling"]
     }
     try:
-        response = requests.post(HAMURLABS_URL, headers=HAMURLABS_HEADERS, data=json.dumps(payload), timeout=10)
-        if response.status_code == 200:
-            data = response.json()
+        r = requests.post(HAMURLABS_URL, headers=HAMURLABS_HEADERS, data=json.dumps(payload), timeout=10)
+        if r.status_code == 200:
+            data = r.json()
             if data.get("data"):
                 return tracker_code, data["data"][0].get("warehouse_code", "")
     except Exception as e:
@@ -146,91 +136,59 @@ def fetch_orders(seller_id, username, password):
         page = 0
         while True:
             params = {
-                "status": status,
-                "startDate": start_date,
-                "endDate": end_date,
-                "orderByField": "PackageLastModifiedDate",
-                "orderByDirection": "DESC",
-                "size": 200,
-                "page": page
+                "status": status, "startDate": start_date, "endDate": end_date,
+                "orderByField": "PackageLastModifiedDate", "orderByDirection": "DESC",
+                "size": 200, "page": page
             }
             r = requests.get(url, auth=HTTPBasicAuth(username, password), params=params)
             data = r.json().get("content", [])
-            if not data:
-                break
-            all_orders.extend(data)
-            page += 1
+            if not data: break
+            all_orders.extend(data); page += 1
 
     if not all_orders:
         return pd.DataFrame(columns=[
-            "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu",
-            "Kargo Kodu", "HB_SİP_NO", "Durum", "Onaylayan Mağaza", "Kargo Firması"
+            "Sipariş No","Sipariş Tarihi","Kargoya Verilmesi Gereken Tarih","Statü",
+            "FastDelivery","Barcode","ProductCode","Micro","Fatura Durumu","Kargo Kodu",
+            "HB_SİP_NO","Durum","Onaylayan Mağaza","Kargo Firması"
         ])
 
     rows = []
     for o in all_orders:
         lines = o.get("lines", [])
-        barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
-        product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
+        barcodes = ", ".join([str(l.get("barcode", "")) for l in lines if l.get("barcode")])
+        product_codes = ", ".join([str(l.get("productCode", "")) for l in lines if l.get("productCode")])
         invoice_link = o.get("invoiceLink", "")
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
-        hb_sip_no = f"{o.get('id', '')}_{o['orderNumber']}"
+        hb_sip_no = f"{o.get('id','')}_{o['orderNumber']}"
 
         rows.append({
             "HB_SİP_NO": hb_sip_no,
             "Sipariş No": o["orderNumber"],
-            "Müşteri Adı": f"{o.get('customerFirstName', '')} {o.get('customerLastName', '')}".strip(),
-            "Package ID": o.get("id", ""),
+            "Müşteri Adı": f"{o.get('customerFirstName','')} {o.get('customerLastName','')}".strip(),
+            "Package ID": o.get("id",""),
             "Sipariş Tarihi": datetime.fromtimestamp(o["orderDate"]/1000),
-            "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000) + timedelta(hours=3),
-            "Statü": o["status"],
-            "FastDelivery": o.get("fastDelivery", False),
-            "Barcode": barcodes,
-            "ProductCode": product_codes,
-            "Micro": o.get("micro", ""),
-            "Fatura Durumu": fatura_durumu,
-            "Kargo Kodu": kargo_code,
-            "Kargo Firması": o.get("cargoProviderName", "")
+            "Kargoya Verilmesi Gereken Tarih": datetime.fromtimestamp(o["agreedDeliveryDate"]/1000)+timedelta(hours=3),
+            "Statü": o["status"], "FastDelivery": o.get("fastDelivery", False),
+            "Barcode": barcodes, "ProductCode": product_codes, "Micro": o.get("micro",""),
+            "Fatura Durumu": fatura_durumu, "Kargo Kodu": kargo_code,
+            "Kargo Firması": o.get("cargoProviderName","")
         })
 
     df = pd.DataFrame(rows)
 
-    now_guncel = datetime.now() + timedelta(hours=3)
+    now_guncel = datetime.now()+timedelta(hours=3)
     def durum_hesapla(row):
-        kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
+        kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds()/3600
         if kalan_saat < 0:
-            toplam_saat = -kalan_saat
-            gun = int(toplam_saat // 24)
-            saat = int(toplam_saat % 24)
-            dakika = int((toplam_saat - int(toplam_saat)) * 60)
-            return f"🔴 Gecikmede ({gun} Gün {saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 2:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟠 2 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 4:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟡 4 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 6:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🔵 6 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 12:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟣 12 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        elif kalan_saat <= 24:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"🟢 24 Saat İçinde ({saat} Saat {dakika} Dakika)"
-        else:
-            saat = int(kalan_saat)
-            dakika = int((kalan_saat - saat) * 60)
-            return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
-    
+            toplam = -kalan_saat; gun=int(toplam//24); saat=int(toplam%24)
+            return f"🔴 Gecikmede ({gun} Gün {saat} Saat)"
+        elif kalan_saat <= 2: return "🟠 2 Saat İçinde"
+        elif kalan_saat <= 4: return "🟡 4 Saat İçinde"
+        elif kalan_saat <= 6: return "🔵 6 Saat İçinde"
+        elif kalan_saat <= 12: return "🟣 12 Saat İçinde"
+        elif kalan_saat <= 24: return "🟢 24 Saat İçinde"
+        else: return "✅ Süresi Var"
     df["Durum"] = df.apply(durum_hesapla, axis=1)
     df["Onaylayan Mağaza"] = ""
     return df
@@ -248,56 +206,47 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
 
         if st.button(f"🔄 Verileri Güncelle ({hesap_adi})"):
             df = fetch_orders(seller, user, pwd)
-
-            df_gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
-            if not df_gecikmis_idx.empty:
-                tracker_codes = df.loc[df_gecikmis_idx, "HB_SİP_NO"].tolist()
+            gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
+            if not gecikmis_idx.empty:
+                tracker_codes = df.loc[gecikmis_idx, "HB_SİP_NO"].tolist()
                 warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
-                df.loc[df_gecikmis_idx, "Onaylayan Mağaza"] = df.loc[df_gecikmis_idx, "HB_SİP_NO"].map(
-                    lambda x: map_depo(warehouse_map.get(x, ""))
-                )
-
+                df.loc[gecikmis_idx, "Onaylayan Mağaza"] = df.loc[gecikmis_idx, "HB_SİP_NO"].map(lambda x: map_depo(warehouse_map.get(x,"")))
             st.session_state[f"data_{hesap_adi}"] = df
             st.success(f"{hesap_adi} verileri güncellendi ✅")
 
         if f"data_{hesap_adi}" in st.session_state:
             df = st.session_state[f"data_{hesap_adi}"]
-
-            kategori_listesi = [
-                "🔴 Gecikmede", "🟠 2 Saat İçinde", "🟡 4 Saat İçinde",
-                "🔵 6 Saat İçinde", "🟣 12 Saat İçinde", "🟢 24 Saat İçinde", "✅ Süresi Var"
-            ]
-            
-            tabs = st.tabs(
-                [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
-            )
+            kategori_listesi = ["🔴 Gecikmede","🟠 2 Saat İçinde","🟡 4 Saat İçinde","🔵 6 Saat İçinde","🟣 12 Saat İçinde","🟢 24 Saat İçinde","✅ Süresi Var"]
+            tabs = st.tabs([f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi])
 
             for j, kategori in enumerate(kategori_listesi):
                 with tabs[j]:
                     df_k = df[df["Durum"].str.contains(kategori)].copy()
-                    if not df_k.empty:
-                        df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
-                        df_k.insert(0, "No", range(1, len(df_k) + 1))
-                        st.dataframe(df_k, height=800)
-
-                        # --- 🎨 Gecikmede tabına özel mağaza tabloları ---
-                        if kategori == "🔴 Gecikmede":
-                            st.markdown("### 🏬 Onaylayan Mağazalara Göre Gecikmedeki Siparişler")
-
-                            magazalar = [m for m in df_k["Onaylayan Mağaza"].dropna().unique() if m != ""]
-                            if magazalar:
-                                for i in range(0, len(magazalar), 3):
-                                    cols = st.columns(3)
-                                    for col, magaza in zip(cols, magazalar[i:i+3]):
-                                        with col:
-                                            df_magaza = df_k[df_k["Onaylayan Mağaza"] == magaza][["HB_SİP_NO", "Müşteri Adı", "Kargo Kodu"]]
-                                            col.markdown(f"""
-                                                <div class="store-card">
-                                                    <h4>{magaza}</h4>
-                                                </div>
-                                            """, unsafe_allow_html=True)
-                                            col.dataframe(df_magaza, use_container_width=True, hide_index=True)
-                            else:
-                                st.info("Henüz 'Onaylayan Mağaza' bilgisi bulunmuyor.")
-                    else:
+                    if df_k.empty:
                         st.info("Bu kategoride sipariş bulunmuyor.")
+                        continue
+
+                    df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
+                    df_k.insert(0, "No", range(1, len(df_k)+1))
+                    st.dataframe(df_k, height=800)
+
+                    # 🎨 Gecikmede tabı: mağaza kartları
+                    if kategori == "🔴 Gecikmede":
+                        st.markdown("### 🏬 Onaylayan Mağazalara Göre Gecikmedeki Siparişler")
+                        magazalar = [m for m in df_k["Onaylayan Mağaza"].dropna().unique() if m != ""]
+                        if magazalar:
+                            for i in range(0, len(magazalar), 3):
+                                cols = st.columns(3)
+                                for col, magaza in zip(cols, magazalar[i:i+3]):
+                                    df_magaza = df_k[df_k["Onaylayan Mağaza"] == magaza][["HB_SİP_NO","Müşteri Adı","Kargo Kodu"]]
+                                    html = f"""
+                                    <div class="store-card">
+                                        <h4>{magaza}</h4>
+                                        <div class="store-table">
+                                            {df_magaza.to_html(index=False, classes='dataframe', border=0)}
+                                        </div>
+                                    </div>
+                                    """
+                                    col.markdown(html, unsafe_allow_html=True)
+                        else:
+                            st.info("Henüz 'Onaylayan Mağaza' bilgisi bulunmuyor.")
