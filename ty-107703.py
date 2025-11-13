@@ -24,6 +24,20 @@ st.markdown("""
     .navbar a:hover {
         color: #ff6600;
     }
+    .store-card {
+        background-color: #fafafa;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .store-card h4 {
+        color: #333;
+        text-align: center;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
     </style>
 
     <div class="navbar">
@@ -83,7 +97,6 @@ HAMURLABS_HEADERS = {
 }
 
 def get_warehouse_code(tracker_code):
-    """Tek bir tracker_code için Hamurlabs API'den warehouse_code çeker."""
     payload = {
         "company_id": "1",
         "updated_at__start": "2025-11-01 00:00:00",
@@ -105,7 +118,6 @@ def get_warehouse_code(tracker_code):
     return tracker_code, ""
 
 def fetch_warehouse_codes_parallel(tracker_codes):
-    """Tüm tracker_code'lar için paralel olarak warehouse_code çeker."""
     warehouse_map = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(get_warehouse_code, code) for code in tracker_codes]
@@ -115,7 +127,6 @@ def fetch_warehouse_codes_parallel(tracker_codes):
     return warehouse_map
 
 def map_depo(kod_str):
-    """Warehouse code'u depo adına çevirir."""
     if pd.isna(kod_str) or kod_str == "":
         return ""
     kod = kod_str.split(",")[0].strip()
@@ -153,7 +164,7 @@ def fetch_orders(seller_id, username, password):
     if not all_orders:
         return pd.DataFrame(columns=[
             "Sipariş No", "Sipariş Tarihi", "Kargoya Verilmesi Gereken Tarih",
-            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu", 
+            "Statü", "FastDelivery", "Barcode", "ProductCode", "Micro", "Fatura Durumu",
             "Kargo Kodu", "HB_SİP_NO", "Durum", "Onaylayan Mağaza", "Kargo Firması"
         ])
 
@@ -162,12 +173,10 @@ def fetch_orders(seller_id, username, password):
         lines = o.get("lines", [])
         barcodes = ", ".join([str(line.get("barcode", "")) for line in lines if line.get("barcode")])
         product_codes = ", ".join([str(line.get("productCode", "")) for line in lines if line.get("productCode")])
-        micro_value = o.get("micro", "")
         invoice_link = o.get("invoiceLink", "")
         fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
         kargo_code = o.get("cargoTrackingNumber", "")
         hb_sip_no = f"{o.get('id', '')}_{o['orderNumber']}"
-        kargo_provider = o.get("cargoProviderName", "")
 
         rows.append({
             "HB_SİP_NO": hb_sip_no,
@@ -180,10 +189,10 @@ def fetch_orders(seller_id, username, password):
             "FastDelivery": o.get("fastDelivery", False),
             "Barcode": barcodes,
             "ProductCode": product_codes,
-            "Micro": micro_value,
+            "Micro": o.get("micro", ""),
             "Fatura Durumu": fatura_durumu,
             "Kargo Kodu": kargo_code,
-            "Kargo Firması": kargo_provider
+            "Kargo Firması": o.get("cargoProviderName", "")
         })
 
     df = pd.DataFrame(rows)
@@ -223,8 +232,9 @@ def fetch_orders(seller_id, username, password):
             return f"✅ Süresi Var ({saat} Saat {dakika} Dakika)"
     
     df["Durum"] = df.apply(durum_hesapla, axis=1)
-    df["Onaylayan Mağaza"] = ""  # İlk başta boş
+    df["Onaylayan Mağaza"] = ""
     return df
+
 
 # ----- Hesap Sekmeleri -----
 account_tabs = st.tabs(["🟥​ DGN-TRENDYOL", "🟩​ DGNONLİNE-TRENDYOL"])
@@ -239,7 +249,6 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
         if st.button(f"🔄 Verileri Güncelle ({hesap_adi})"):
             df = fetch_orders(seller, user, pwd)
 
-            # ----- Sadece Gecikmiş siparişler için Hamurlabs sorgusu -----
             df_gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
             if not df_gecikmis_idx.empty:
                 tracker_codes = df.loc[df_gecikmis_idx, "HB_SİP_NO"].tolist()
@@ -263,13 +272,32 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                 [f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi]
             )
 
-
             for j, kategori in enumerate(kategori_listesi):
                 with tabs[j]:
                     df_k = df[df["Durum"].str.contains(kategori)].copy()
                     if not df_k.empty:
                         df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
                         df_k.insert(0, "No", range(1, len(df_k) + 1))
-                        st.dataframe(df_k, height=800)                    
+                        st.dataframe(df_k, height=800)
+
+                        # --- 🎨 Gecikmede tabına özel mağaza tabloları ---
+                        if kategori == "🔴 Gecikmede":
+                            st.markdown("### 🏬 Onaylayan Mağazalara Göre Gecikmedeki Siparişler")
+
+                            magazalar = [m for m in df_k["Onaylayan Mağaza"].dropna().unique() if m != ""]
+                            if magazalar:
+                                for i in range(0, len(magazalar), 3):
+                                    cols = st.columns(3)
+                                    for col, magaza in zip(cols, magazalar[i:i+3]):
+                                        with col:
+                                            df_magaza = df_k[df_k["Onaylayan Mağaza"] == magaza][["HB_SİP_NO", "Müşteri Adı", "Kargo Kodu"]]
+                                            col.markdown(f"""
+                                                <div class="store-card">
+                                                    <h4>{magaza}</h4>
+                                                </div>
+                                            """, unsafe_allow_html=True)
+                                            col.dataframe(df_magaza, use_container_width=True, hide_index=True)
+                            else:
+                                st.info("Henüz 'Onaylayan Mağaza' bilgisi bulunmuyor.")
                     else:
                         st.info("Bu kategoride sipariş bulunmuyor.")
