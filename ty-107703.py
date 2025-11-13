@@ -5,6 +5,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 
 # ----- Navbar -----
 st.markdown("""
@@ -24,10 +25,9 @@ st.markdown("""
     .navbar a:hover {
         color: #ff6600;
     }
+
     /* ---- Mağaza kart tasarımı ---- */
     .store-card {
-        background-color: #ffffff;
-        border: 1px solid #ddd;
         border-radius: 14px;
         box-shadow: 0 3px 8px rgba(0,0,0,0.1);
         padding: 15px;
@@ -36,9 +36,9 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
+        color: #222;
     }
     .store-card h4 {
-        color: #222;
         text-align: center;
         font-weight: 600;
         margin-bottom: 10px;
@@ -47,6 +47,7 @@ st.markdown("""
         flex-grow: 1;
         overflow-y: auto;
         border-radius: 8px;
+        background-color: rgba(255,255,255,0.8);
     }
     </style>
 
@@ -197,6 +198,12 @@ def fetch_orders(seller_id, username, password):
 # ----- Hesap Sekmeleri -----
 account_tabs = st.tabs(["🟥​ DGN-TRENDYOL", "🟩​ DGNONLİNE-TRENDYOL"])
 
+# Pastel renk paleti (her mağaza farklı renk alır)
+PASTEL_COLORS = [
+    "#FFD3B6", "#FFAAA5", "#FF8B94", "#A8E6CF", "#DCEDC1", "#FFD3B6",
+    "#D1C4E9", "#BBDEFB", "#B2EBF2", "#C8E6C9", "#FFF9C4", "#FFCCBC", "#F8BBD0"
+]
+
 for i, (seller, user, pwd, hesap_adi) in enumerate([
     (SELLER_ID_1, USERNAME_1, PASSWORD_1, "DGN-TRENDYOL"),
     (SELLER_ID_2, USERNAME_2, PASSWORD_2, "DGNONLİNE-TRENDYOL")
@@ -235,13 +242,16 @@ for i, (seller, user, pwd, hesap_adi) in enumerate([
                         st.markdown("### 🏬 Onaylayan Mağazalara Göre Gecikmedeki Siparişler")
                         magazalar = [m for m in df_k["Onaylayan Mağaza"].dropna().unique() if m != ""]
                         if magazalar:
+                            color_map = {m: PASTEL_COLORS[i % len(PASTEL_COLORS)] for i, m in enumerate(magazalar)}
                             for i in range(0, len(magazalar), 3):
                                 cols = st.columns(3)
                                 for col, magaza in zip(cols, magazalar[i:i+3]):
                                     df_magaza = df_k[df_k["Onaylayan Mağaza"] == magaza][["HB_SİP_NO","Müşteri Adı","Kargo Kodu"]]
+                                    adet = len(df_magaza)
+                                    renk = color_map[magaza]
                                     html = f"""
-                                    <div class="store-card">
-                                        <h4>{magaza}</h4>
+                                    <div class="store-card" style="background-color:{renk};">
+                                        <h4>{magaza} ({adet})</h4>
                                         <div class="store-table">
                                             {df_magaza.to_html(index=False, classes='dataframe', border=0)}
                                         </div>
