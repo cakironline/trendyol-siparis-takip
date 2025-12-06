@@ -53,7 +53,7 @@ HAMURLABS_URL = "http://dgn.hamurlabs.io/api/order/v2/search/"
 HAMURLABS_HEADERS = {"Authorization":"Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=","Content-Type":"application/json"}
 
 def get_warehouse_code(tracker_code):
-    payload = {"company_id":"1","updated_at__start":"2025-11-10 00:00:00",
+    payload = {"company_id":"1","updated_at__start":"2025-11-20 00:00:00",
                "updated_at__end":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                "size":100,"start":0,"shop_id":"","tracker_code":tracker_code,"order_types":["selling"]}
     try:
