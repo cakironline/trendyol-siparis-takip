@@ -50,141 +50,225 @@ depo_dict = {
 
 # ----- Hamurlabs API -----
 HAMURLABS_URL = "http://dgn.hamurlabs.io/api/order/v2/search/"
-HAMURLABS_HEADERS = {"Authorization":"Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=","Content-Type":"application/json"}
+HAMURLABS_HEADERS = {
+    "Authorization":"Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=",
+    "Content-Type":"application/json"
+}
 
-def get_warehouse_code(tracker_code):
-    payload = {"company_id":"1","updated_at__start":"2025-11-20 00:00:00",
-               "updated_at__end": (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S"),
-               "size":100,"start":0,"shop_id":"","tracker_code":tracker_code,"order_types":["selling"]}
+# ✅ warehouse + packed_at çeken fonksiyon
+def get_warehouse_and_packed_at(tracker_code):
+    payload = {
+        "company_id":"1",
+        "updated_at__start":"2025-11-20 00:00:00",
+        "updated_at__end": (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S"),
+        "size":100,
+        "start":0,
+        "shop_id":"",
+        "tracker_code":tracker_code,
+        "order_types":["selling"]
+    }
     try:
         r = requests.post(HAMURLABS_URL, headers=HAMURLABS_HEADERS, data=json.dumps(payload), timeout=10)
         if r.status_code == 200:
             data = r.json()
-            if data.get("data"): return tracker_code, data["data"][0].get("warehouse_code","")
+            if data.get("data"):
+                row = data["data"][0]
+                return tracker_code, row.get("warehouse_code",""), row.get("packed_at","")
     except Exception as e:
         st.warning(f"⚠️ Hamurlabs sorgusunda hata: {e}")
-    return tracker_code, ""
 
-def fetch_warehouse_codes_parallel(tracker_codes):
-    warehouse_map = {}
+    return tracker_code, "", ""
+
+# ✅ paralel çekme
+def fetch_warehouse_and_packed_parallel(tracker_codes):
+    result_map = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(get_warehouse_code, code) for code in tracker_codes]
+        futures = [executor.submit(get_warehouse_and_packed_at, code) for code in tracker_codes]
         for future in as_completed(futures):
-            code, warehouse = future.result()
-            warehouse_map[code] = warehouse
-    return warehouse_map
+            code, warehouse, packed_at = future.result()
+            result_map[code] = {
+                "warehouse": warehouse,
+                "packed_at": packed_at
+            }
+    return result_map
 
 def map_depo(kod_str):
-    if pd.isna(kod_str) or kod_str=="": return ""
+    if pd.isna(kod_str) or kod_str=="": 
+        return ""
     kod = kod_str.split(",")[0].strip()
     return depo_dict.get(kod,kod)
 
 # ----- Trendyol Sipariş Fonksiyonu -----
 def fetch_orders(seller_id, username, password):
-    now=datetime.now()
-    start_date=int((now-timedelta(days=14)).timestamp()*1000)
-    end_date=int(now.timestamp()*1000)
-    url=f"https://apigw.trendyol.com/integration/order/sellers/{seller_id}/orders"
-    statuses=["Created","Picking","Invoiced"]; all_orders=[]
+    now = datetime.now()
+    start_date = int((now - timedelta(days=14)).timestamp() * 1000)
+    end_date = int(now.timestamp() * 1000)
+
+    url = f"https://apigw.trendyol.com/integration/order/sellers/{seller_id}/orders"
+    statuses = ["Created","Picking","Invoiced"]
+    all_orders = []
+
     for status in statuses:
-        page=0
+        page = 0
         while True:
-            params={"status":status,"startDate":start_date,"endDate":end_date,
-                    "orderByField":"PackageLastModifiedDate","orderByDirection":"DESC",
-                    "size":200,"page":page}
+            params = {
+                "status":status,
+                "startDate":start_date,
+                "endDate":end_date,
+                "orderByField":"PackageLastModifiedDate",
+                "orderByDirection":"DESC",
+                "size":200,
+                "page":page
+            }
             r = requests.get(url, auth=HTTPBasicAuth(username,password), params=params)
             data = r.json().get("content",[])
-            if not data: break
-            all_orders.extend(data); page+=1
-    if not all_orders: return pd.DataFrame(columns=["Sipariş No","Sipariş Tarihi","Kargoya Verilmesi Gereken Tarih",
-                                                    "Statü","FastDelivery","Barcode","ProductCode","Micro",
-                                                    "Fatura Durumu","Kargo Kodu","HB_SİP_NO","Durum",
-                                                    "Onaylayan Mağaza","Kargo Firması"])
-    rows=[]
+            if not data:
+                break
+            all_orders.extend(data)
+            page += 1
+
+    if not all_orders:
+        return pd.DataFrame(columns=[
+            "Sipariş No","Sipariş Tarihi","Kargoya Verilmesi Gereken Tarih",
+            "Statü","FastDelivery","Barcode","ProductCode","Micro",
+            "Fatura Durumu","Kargo Kodu","HB_SİP_NO","Durum",
+            "Onaylayan Mağaza","Hazırlanma Tarihi (packed_at)","Kargo Firması"
+        ])
+
+    rows = []
     for o in all_orders:
-        lines=o.get("lines",[])
-        barcodes=", ".join([str(l.get("barcode","")) for l in lines if l.get("barcode")])
-        product_codes=", ".join([str(l.get("productCode","")) for l in lines if l.get("productCode")])
-        invoice_link=o.get("invoiceLink","")
-        fatura_durumu="Faturalı" if invoice_link else "Fatura Yüklü Değil"
-        kargo_code=o.get("cargoTrackingNumber","")
-        hb_sip_no=f"{o.get('id','')}_{o['orderNumber']}"
-        rows.append({"HB_SİP_NO":hb_sip_no,"Sipariş No":o["orderNumber"],
-                     "Müşteri Adı":f"{o.get('customerFirstName','')} {o.get('customerLastName','')}".strip(),
-                     "Package ID":o.get("id",""),
-                     "Sipariş Tarihi":datetime.fromtimestamp(o["orderDate"]/1000),
-                     "Kargoya Verilmesi Gereken Tarih":datetime.fromtimestamp(o["agreedDeliveryDate"]/1000)+timedelta(hours=3),
-                     "Statü":o["status"],"FastDelivery":o.get("fastDelivery",False),
-                     "Barcode":barcodes,"ProductCode":product_codes,"Micro":o.get("micro",""),
-                     "Fatura Durumu":fatura_durumu,"Kargo Kodu":kargo_code,
-                     "Kargo Firması":o.get("cargoProviderName","")})
-    df=pd.DataFrame(rows)
-    now_guncel=datetime.now()+timedelta(hours=3)
+        lines = o.get("lines",[])
+        barcodes = ", ".join([str(l.get("barcode","")) for l in lines if l.get("barcode")])
+        product_codes = ", ".join([str(l.get("productCode","")) for l in lines if l.get("productCode")])
+        invoice_link = o.get("invoiceLink","")
+        fatura_durumu = "Faturalı" if invoice_link else "Fatura Yüklü Değil"
+        kargo_code = o.get("cargoTrackingNumber","")
+        hb_sip_no = f"{o.get('id','')}_{o['orderNumber']}"
+
+        rows.append({
+            "HB_SİP_NO":hb_sip_no,
+            "Sipariş No":o["orderNumber"],
+            "Müşteri Adı":f"{o.get('customerFirstName','')} {o.get('customerLastName','')}".strip(),
+            "Package ID":o.get("id",""),
+            "Sipariş Tarihi":datetime.fromtimestamp(o["orderDate"]/1000),
+            "Kargoya Verilmesi Gereken Tarih":datetime.fromtimestamp(o["agreedDeliveryDate"]/1000)+timedelta(hours=3),
+            "Statü":o["status"],
+            "FastDelivery":o.get("fastDelivery",False),
+            "Barcode":barcodes,
+            "ProductCode":product_codes,
+            "Micro":o.get("micro",""),
+            "Fatura Durumu":fatura_durumu,
+            "Kargo Kodu":kargo_code,
+            "Kargo Firması":o.get("cargoProviderName","")
+        })
+
+    df = pd.DataFrame(rows)
+
+    now_guncel = datetime.now() + timedelta(hours=3)
+
     def durum_hesapla(row):
-        kalan_saat=(row["Kargoya Verilmesi Gereken Tarih"]-now_guncel).total_seconds()/3600
-        if kalan_saat<0: toplam=-kalan_saat; gun=int(toplam//24); saat=int(toplam%24); return f"🔴 Gecikmede ({gun} Gün {saat} Saat)"
-        elif kalan_saat<=2: return "🟠 2 Saat İçinde"
-        elif kalan_saat<=4: return "🟡 4 Saat İçinde"
-        elif kalan_saat<=6: return "🔵 6 Saat İçinde"
-        elif kalan_saat<=12: return "🟣 12 Saat İçinde"
-        elif kalan_saat<=24: return "🟢 24 Saat İçinde"
+        kalan_saat = (row["Kargoya Verilmesi Gereken Tarih"] - now_guncel).total_seconds() / 3600
+        if kalan_saat < 0:
+            toplam = -kalan_saat
+            gun = int(toplam // 24)
+            saat = int(toplam % 24)
+            return f"🔴 Gecikmede ({gun} Gün {saat} Saat)"
+        elif kalan_saat <= 2: return "🟠 2 Saat İçinde"
+        elif kalan_saat <= 4: return "🟡 4 Saat İçinde"
+        elif kalan_saat <= 6: return "🔵 6 Saat İçinde"
+        elif kalan_saat <= 12: return "🟣 12 Saat İçinde"
+        elif kalan_saat <= 24: return "🟢 24 Saat İçinde"
         else: return "✅ Süresi Var"
-    df["Durum"]=df.apply(durum_hesapla, axis=1)
-    df["Onaylayan Mağaza"]=""
+
+    df["Durum"] = df.apply(durum_hesapla, axis=1)
+    df["Onaylayan Mağaza"] = ""
+    df["Hazırlanma Tarihi (packed_at)"] = ""
+
     return df
 
 # ----- Hesap Sekmeleri -----
 account_tabs = st.tabs(["🟥​ DGN-TRENDYOL","🟩​ DGNONLİNE-TRENDYOL"])
 
-for i,(seller,user,pwd,hesap_adi) in enumerate([(SELLER_ID_1,USERNAME_1,PASSWORD_1,"DGN-TRENDYOL"),
-                                                (SELLER_ID_2,USERNAME_2,PASSWORD_2,"DGNONLİNE-TRENDYOL")]):
+for i,(seller,user,pwd,hesap_adi) in enumerate([
+    (SELLER_ID_1,USERNAME_1,PASSWORD_1,"DGN-TRENDYOL"),
+    (SELLER_ID_2,USERNAME_2,PASSWORD_2,"DGNONLİNE-TRENDYOL")
+]):
+
     with account_tabs[i]:
         st.subheader(f"📦 {hesap_adi} Siparişleri")
+
         if st.button(f"🔄 Verileri Güncelle ({hesap_adi})"):
             df = fetch_orders(seller,user,pwd)
+
             gecikmis_idx = df[df["Durum"].str.contains("🔴 Gecikmede")].index
+
             if not gecikmis_idx.empty:
                 tracker_codes = df.loc[gecikmis_idx,"HB_SİP_NO"].tolist()
-                warehouse_map = fetch_warehouse_codes_parallel(tracker_codes)
-                df.loc[gecikmis_idx,"Onaylayan Mağaza"]=df.loc[gecikmis_idx,"HB_SİP_NO"].map(lambda x: map_depo(warehouse_map.get(x,"")))
-            st.session_state[f"data_{hesap_adi}"]=df
+                hl_map = fetch_warehouse_and_packed_parallel(tracker_codes)
+
+                df.loc[gecikmis_idx,"Onaylayan Mağaza"] = df.loc[gecikmis_idx,"HB_SİP_NO"].map(
+                    lambda x: map_depo(hl_map.get(x, {}).get("warehouse", ""))
+                )
+
+                df.loc[gecikmis_idx,"Hazırlanma Tarihi (packed_at)"] = df.loc[gecikmis_idx,"HB_SİP_NO"].map(
+                    lambda x: hl_map.get(x, {}).get("packed_at", "")
+                )
+
+                df["Hazırlanma Tarihi (packed_at)"] = pd.to_datetime(
+                    df["Hazırlanma Tarihi (packed_at)"], errors="coerce"
+                ).dt.strftime("%d.%m.%Y %H:%M")
+
+            st.session_state[f"data_{hesap_adi}"] = df
             st.success(f"{hesap_adi} verileri güncellendi ✅")
 
         if f"data_{hesap_adi}" in st.session_state:
             df = st.session_state[f"data_{hesap_adi}"]
-            kategori_listesi=["🔴 Gecikmede","🟠 2 Saat İçinde","🟡 4 Saat İçinde","🔵 6 Saat İçinde",
-                              "🟣 12 Saat İçinde","🟢 24 Saat İçinde","✅ Süresi Var"]
+
+            kategori_listesi = [
+                "🔴 Gecikmede","🟠 2 Saat İçinde","🟡 4 Saat İçinde","🔵 6 Saat İçinde",
+                "🟣 12 Saat İçinde","🟢 24 Saat İçinde","✅ Süresi Var"
+            ]
+
             tabs = st.tabs([f"{k} ({len(df[df['Durum'].str.contains(k)])})" for k in kategori_listesi])
+
             for j,kategori in enumerate(kategori_listesi):
                 with tabs[j]:
                     df_k = df[df["Durum"].str.contains(kategori)].copy()
-                    if df_k.empty: st.info("Bu kategoride sipariş bulunmuyor."); continue
+                    if df_k.empty:
+                        st.info("Bu kategoride sipariş bulunmuyor.")
+                        continue
+
                     df_k = df_k.sort_values(by="Sipariş Tarihi", ascending=True)
                     df_k.insert(0,"No", range(1,len(df_k)+1))
                     st.dataframe(df_k,height=800)
-                    
+
                     if kategori=="🔴 Gecikmede":
                         st.markdown("### 🏬 Onaylayan Mağazalara Göre Gecikmedeki Siparişler")
+
                         magazalar = [m for m in df_k["Onaylayan Mağaza"].dropna().unique() if m!=""]
+
                         if magazalar:
-                            # Sipariş sayısına göre sıralama
                             mag_counts = {m:len(df_k[df_k["Onaylayan Mağaza"]==m]) for m in magazalar}
                             magazalar_sorted = sorted(mag_counts.keys(), key=lambda x: mag_counts[x], reverse=True)
+
                             max_count = max(mag_counts.values())
                             min_count = min(mag_counts.values())
+
                             for i in range(0,len(magazalar_sorted),3):
                                 cols = st.columns(3)
                                 for col, magaza in zip(cols, magazalar_sorted[i:i+3]):
-                                    df_magaza = df_k[df_k["Onaylayan Mağaza"]==magaza][["HB_SİP_NO","Müşteri Adı","Kargo Kodu"]]
+
+                                    df_magaza = df_k[df_k["Onaylayan Mağaza"]==magaza][
+                                        ["HB_SİP_NO","Müşteri Adı","Kargo Kodu","Hazırlanma Tarihi (packed_at)"]
+                                    ]
+
                                     adet = len(df_magaza)
-                                    # Koyu-kırmızı → açık-kırmızı
-                                    if max_count != min_count:
-                                        norm = (adet-min_count)/(max_count-min_count)
-                                    else:
-                                        norm = 1
+
+                                    norm = (adet-min_count)/(max_count-min_count) if max_count != min_count else 1
                                     kırmızı = int(255*(1-norm))
                                     renk = f"rgb(255,{kırmızı},{kırmızı})"
-                                    html=f"""
+
+                                    html = f"""
                                     <div class="store-card" style="background-color:{renk};">
                                         <h4>{magaza} ({adet})</h4>
                                         <div class="store-table">
