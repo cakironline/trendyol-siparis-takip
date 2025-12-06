@@ -54,7 +54,7 @@ HAMURLABS_HEADERS = {"Authorization":"Basic c2VsaW0uc2FyaWtheWE6NDMxMzQyNzhDY0A=
 
 def get_warehouse_code(tracker_code):
     payload = {"company_id":"1","updated_at__start":"2025-11-20 00:00:00",
-               "updated_at__end": (datetime.now() - timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S"),
+               "updated_at__end": (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S"),
                "size":100,"start":0,"shop_id":"","tracker_code":tracker_code,"order_types":["selling"]}
     try:
         r = requests.post(HAMURLABS_URL, headers=HAMURLABS_HEADERS, data=json.dumps(payload), timeout=10)
