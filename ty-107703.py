@@ -59,7 +59,7 @@ HAMURLABS_HEADERS = {
 def get_warehouse_and_packed_at(tracker_code):
     payload = {
         "company_id":"1",
-        "updated_at__start":"2025-12-10 00:00:00",
+        "updated_at__start":"2025-12-20 00:00:00",
         "updated_at__end": (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S"),
         "size":100,
         "start":0,
